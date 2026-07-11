@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { X, CheckCircle2, Calculator, ClipboardList, Briefcase, Users, AlertCircle, Paperclip } from "lucide-react";
+import { X, CheckCircle2, Calculator, ClipboardList, Briefcase, Users, AlertCircle, Paperclip, Tag, Printer, Clock, Radar as RadarIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDateTime } from "@/lib/formatters";
-import { getEvaluatorsList, calculateEvfAveragesForVendor, getFinalStatusForVendor, getSafeEvalStatus, getSafeReason, getSafeScore } from "@/lib/evaluation-utils";
+import { getEvaluatorsList, calculateEvfAveragesForVendor, getFinalStatusForVendor, getSafeEvalStatus, getSafeReason, getSafeScore, getRadarData } from "@/lib/evaluation-utils";
 import Link from "next/link";
 import {
   Radar,
@@ -15,7 +15,7 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 
-export const ViewingModal = ({ viewingEval, onClose }) => {
+export const ViewingModal = ({ viewingEval, onClose }: any) => {
   const [activeVendorTab, setActiveVendorTab] = useState(0);
 
   if (!viewingEval) return null;
@@ -127,10 +127,7 @@ export const ViewingModal = ({ viewingEval, onClose }) => {
                             viewingEval.status === "APPROVED" ||
                               viewingEval.status === "EVALUATED" ||
                               viewingEval.status === "AWAITING_JUSTIFICATION"
-                            ? calculateEvfAveragesForVendor(
-                                viewingEval,
-                                activeVendorTab,
-                              ).total >= 60
+                            ? Number(calculateEvfAveragesForVendor(viewingEval, activeVendorTab).total) >= 60
                               ? "مؤهل فنياً"
                               : "مستبعد"
                             : "قيد الإجراء";
@@ -238,7 +235,7 @@ export const ViewingModal = ({ viewingEval, onClose }) => {
                                 تقييمات أعضاء اللجنة
                               </h4>
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                                {getEvaluatorsList(viewingEval).map((ev, i) => {
+                                {getEvaluatorsList(viewingEval).map((ev: any, i: any) => {
                                   let hasEvaluated = false;
                                   let evalTimestamp = null;
                                   let individualResult = null;
@@ -312,7 +309,7 @@ export const ViewingModal = ({ viewingEval, onClose }) => {
                                       let indNoCount = 0;
                                       // @ts-ignore
                                       viewingEval.evaluatedItems?.forEach(
-                                        (_, itemIdx) => {
+                                        (_: any, itemIdx: any) => {
                                           const st = getSafeEvalStatus(
                                             // @ts-ignore
                                             viewingEval.itemEvaluations,
@@ -408,8 +405,7 @@ export const ViewingModal = ({ viewingEval, onClose }) => {
                               finalStatus !== "قيد الإجراء" && (
                                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 lg:col-span-1 print:break-inside-avoid">
                                   <h4 className="font-bold text-[#0D4435] text-sm mb-3 flex items-center gap-2 border-b border-gray-100 pb-3">
-                                    <Radar
-                                      size={18}
+                                    <RadarIcon size={18}
                                       className="text-[#C5A059]"
                                     />{" "}
                                     التحليل البصري
@@ -493,7 +489,7 @@ export const ViewingModal = ({ viewingEval, onClose }) => {
                                     let anyNo = false;
                                     let evaluatedCount = 0;
                                     getEvaluatorsList(viewingEval).forEach(
-                                      (_, evIdx) => {
+                                      (_: any, evIdx: any) => {
                                         const st = getSafeEvalStatus(
                                           // @ts-ignore
                                           viewingEval.itemEvaluations,
@@ -542,7 +538,7 @@ export const ViewingModal = ({ viewingEval, onClose }) => {
                                           </p>
                                           <div className="flex flex-wrap gap-2">
                                             {getEvaluatorsList(viewingEval).map(
-                                              (ev, evIdx) => {
+                                              (ev: any, evIdx: any) => {
                                                 const st = getSafeEvalStatus(
                                                   // @ts-ignore
                                                   viewingEval.itemEvaluations,
@@ -645,7 +641,7 @@ export const ViewingModal = ({ viewingEval, onClose }) => {
                                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                               {getEvaluatorsList(
                                                 viewingEval,
-                                              ).map((ev, evalIndex) => {
+                                              ).map((ev: any, evalIndex: any) => {
                                                 const score = getSafeScore(
                                                   // @ts-ignore
                                                   viewingEval.itemEvaluations,

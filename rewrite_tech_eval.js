@@ -1,4 +1,6 @@
-"use client";
+const fs = require('fs');
+
+const fileContent = `"use client";
 
 import { useState, useEffect } from "react";
 import { HistoryModal } from "@/components/features/evaluations/history-modal";
@@ -60,7 +62,7 @@ export default function TechnicalEvalDashboard() {
   }, [searchTerm, filterStatus, sortBy, activeTab]);
 
   const copyEvalLink = (id) => {
-    navigator.clipboard.writeText(`${window.location.origin}/eval/${id}`);
+    navigator.clipboard.writeText(\`\${window.location.origin}/eval/\${id}\`);
     toast.success("تم نسخ الرابط بنجاح للمشاركة");
   };
 
@@ -82,7 +84,7 @@ export default function TechnicalEvalDashboard() {
     if (ev.itemEvaluations) {
       Object.keys(ev.itemEvaluations).forEach((idx) => {
         const evalData = ev.itemEvaluations[idx];
-        const evaluatorName = ev.evaluators?.[idx]?.name || `مقيم ${parseInt(idx) + 1}`;
+        const evaluatorName = ev.evaluators?.[idx]?.name || \`مقيم \${parseInt(idx) + 1}\`;
         if (evalData.timestamp) {
           events.push({ date: evalData.timestamp, action: "اكتمل التقييم واعتماد من قبل العضو", user: evaluatorName, isEval: true });
         }
@@ -142,7 +144,7 @@ export default function TechnicalEvalDashboard() {
       <Toaster position="top-center" richColors />
 
       <style dangerouslySetInnerHTML={{
-        __html: `
+        __html: \`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
         * { font-family: 'Cairo', sans-serif !important; }
         body, main { padding-top: 0 !important; margin-top: 0 !important; }
@@ -153,7 +155,7 @@ export default function TechnicalEvalDashboard() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
         @media print { .no-print { display: none !important; } body { background: white !important; } }
-      `}} />
+      \`}} />
 
       <AppHeader />
 
@@ -208,11 +210,11 @@ export default function TechnicalEvalDashboard() {
               <button
                 key={i}
                 onClick={() => setCurrentPage(i + 1)}
-                className={`w-10 h-10 rounded-lg text-sm font-bold transition-all ${
+                className={\`w-10 h-10 rounded-lg text-sm font-bold transition-all \${
                   currentPage === i + 1
                     ? "bg-[#0D4435] text-white shadow-md scale-110"
                     : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
+                }\`}
               >
                 {i + 1}
               </button>
@@ -271,3 +273,7 @@ export default function TechnicalEvalDashboard() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('app/tech-eval/page.jsx', fileContent);
+console.log('Successfully refactored app/tech-eval/page.jsx');

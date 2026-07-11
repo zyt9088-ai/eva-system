@@ -1,9 +1,10 @@
 "use client";
-import { X, Calculator, ClipboardList, Briefcase, Plus, Save, Trash2, ShieldAlert, ArrowRight } from "lucide-react";
+import { X, Calculator, ClipboardList, Briefcase, Plus, Save, Trash2, ShieldAlert, ArrowRight, Paperclip, Bookmark, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
 
-export const CreateEvalModal = ({
+export const CreateEvalModal = (props: any) => {
+  const {
   isModalOpen,
   setIsModalOpen,
   step,
@@ -35,7 +36,7 @@ export const CreateEvalModal = ({
   removeEvaluator,
   handleCreateRequest,
   handleFinalSave,
-}) => {
+} = props;
   const inputClasses = "w-full h-11 bg-white border border-gray-300 rounded-lg px-4 text-sm font-semibold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all placeholder:text-gray-400 shadow-sm";
   const labelClasses = "block text-sm font-bold text-gray-700 mb-1.5 text-right";
   const primaryBtn = "inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D4435] text-white hover:bg-[#0a3529] h-11 px-6 text-sm font-bold shadow-sm transition-all active:scale-95";
@@ -156,7 +157,7 @@ export const CreateEvalModal = ({
                               )}
                             </div>
                             <div className="space-y-4">
-                              {form.vendors.map((vendor, vIdx) => (
+                              {form.vendors.map((vendor: any, vIdx: any) => (
                                 <div
                                   key={vIdx}
                                   className="bg-gray-50 p-4 rounded-xl border border-gray-200 relative group"
@@ -321,7 +322,7 @@ export const CreateEvalModal = ({
                                   </div>
                                 </div>
                                 <div className="space-y-3">
-                                  {form.evfCriteria.map((item, index) => (
+                                  {form.evfCriteria.map((item: any, index: any) => (
                                     <div
                                       key={index}
                                       className="flex items-center gap-3"
@@ -391,7 +392,7 @@ export const CreateEvalModal = ({
                                   بنود المطابقة الفنية (اختياري)
                                 </label>
                                 <div className="space-y-3 mt-3">
-                                  {form.evaluatedItems.map((item, index) => (
+                                  {form.evaluatedItems.map((item: any, index: any) => (
                                     <div
                                       key={index}
                                       className="flex items-center gap-3"
@@ -458,7 +459,7 @@ export const CreateEvalModal = ({
                               <span className="text-red-500">*</span>
                             </label>
                             <div className="space-y-4">
-                              {form.evaluators.map((evaluator, index) => (
+                              {form.evaluators.map((evaluator: any, index: any) => (
                                 <div
                                   key={index}
                                   className="flex items-start gap-4 p-5 bg-gray-50 border border-gray-200 rounded-xl relative shadow-sm"
