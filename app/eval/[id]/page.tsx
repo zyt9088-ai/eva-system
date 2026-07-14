@@ -1,10 +1,12 @@
 "use client";
+import { VENDOR_PERFORMANCE_FLAT_CRITERIA } from '@/lib/evaluation-utils';
 
 import { useState, use } from "react";
 import { useEvaluations } from "@/hooks/useEvaluations";
 import { EvaluatorSelector } from "@/components/features/evaluations/public/evaluator-selector";
 import { EvaluationForm } from "@/components/features/evaluations/public/evaluation-form";
 import { SuccessScreen, ApprovedScreen, PendingReviewScreen } from "@/components/features/evaluations/public/status-screens";
+import { LoadingScreen } from "@/components/ui/loading-screen";
 
 export default function PublicEvalPage({ params }: { params: any }) {
   const unwrappedParams = use(params);
@@ -17,11 +19,7 @@ export default function PublicEvalPage({ params }: { params: any }) {
   const [isAgreed, setIsAgreed] = useState(false);
 
   if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-bold text-gray-500 text-sm">
-        جاري التحميل...
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   const data: any = evaluations.find((ev: any) => ev.id === evalId);
@@ -79,7 +77,11 @@ export default function PublicEvalPage({ params }: { params: any }) {
 
   const handleEvfScore = (vendorIdx: number, critIdx: number, val: string) => {
     let value = parseFloat(val);
-    if (value > 10) value = 10;
+    if (data.type === "VENDOR_PERFORMANCE") {
+      if (value > 100) value = 100;
+    } else {
+      if (value > 10) value = 10;
+    }
     if (value < 0) value = 0;
     setCurrentEvaluations((prev: any) => ({
       ...prev,
@@ -109,7 +111,7 @@ export default function PublicEvalPage({ params }: { params: any }) {
     });
 
     let overallStatus = data.status;
-    if (isEveryoneDone && overallStatus === "PENDING") {
+    if (isEveryoneDone && (overallStatus === "PENDING" || overallStatus === "قيد التجهيز")) {
       overallStatus = "EVALUATED";
     }
 
@@ -132,6 +134,12 @@ export default function PublicEvalPage({ params }: { params: any }) {
           const evalData = currentEvaluations[vIdx]?.[cIdx];
           if (!evalData || !evalData.status) disabled = true;
           if (evalData?.status === "NO" && (!evalData.reason || !evalData.reason.trim())) disabled = true;
+        });
+      } else if (data.type === "VENDOR_PERFORMANCE") {
+        VENDOR_PERFORMANCE_FLAT_CRITERIA.forEach((_: any, cIdx: number) => {
+          const evalData = currentEvaluations[vIdx]?.[cIdx];
+          if (!evalData || evalData.score === "" || evalData.score === undefined) disabled = true;
+          if (evalData && evalData.score !== "" && parseFloat(evalData.score) < 70 && (!evalData.reason || !evalData.reason.trim())) disabled = true;
         });
       } else {
         data.evfCriteria.forEach((_: any, cIdx: number) => {

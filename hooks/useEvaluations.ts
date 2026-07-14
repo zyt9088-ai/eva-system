@@ -60,7 +60,7 @@ export function useEvaluations() {
           evaluators: ev.evaluators || [],
           evfCriteria: ev.evf_criteria || [],
           evaluatedItems: ev.evaluated_items?.map((i: any) => i.item_name) || [],
-          itemEvaluations: {}, // We can add score mapping here later if needed
+          itemEvaluations: ev.item_evaluations || {},
           history: [],
         };
       });
@@ -77,7 +77,7 @@ export function useEvaluations() {
           project_name: newEval.projectName,
           deadline: newEval.deadline,
           type: newEval.type,
-          status: newEval.status,
+          status: newEval.status || "قيد التجهيز",
         })
         .select()
         .single();
@@ -134,8 +134,29 @@ export function useEvaluations() {
       toast.success("تم إنشاء طلب التقييم بنجاح في قاعدة البيانات");
     },
     onError: (error) => {
-      console.error("Create error:", error);
+      console.error("Create error stringified:", JSON.stringify(error, null, 2), error);
       toast.error("حدث خطأ أثناء حفظ التقييم");
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async (updatedEval: Evaluation) => {
+      const { error } = await supabase
+        .from("evaluations")
+        .update({
+          status: updatedEval.status,
+          item_evaluations: updatedEval.itemEvaluations,
+        })
+        .eq("id", updatedEval.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+      // We don't need a toast here because the page component handles it
+    },
+    onError: (error) => {
+      console.error("Edit error stringified:", JSON.stringify(error, null, 2), error);
+      toast.error("حدث خطأ أثناء حفظ التقييم. تأكد من إضافة عمود item_evaluations في Supabase.");
     },
   });
 
@@ -169,7 +190,7 @@ export function useEvaluations() {
     isLoaded: !isLoading,
     saveEvaluation: (newEval: Evaluation, isEdit: boolean) => {
       if (isEdit) {
-        // Handle edit logic here if needed, for now we assume Create
+        editMutation.mutate(newEval);
       } else {
         createMutation.mutate(newEval);
       }

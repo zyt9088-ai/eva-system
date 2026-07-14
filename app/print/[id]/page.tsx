@@ -5,6 +5,7 @@ import { Printer, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useEvaluations } from "@/hooks/useEvaluations";
 import { getFinalStatusForVendor, calculateEvfAveragesForVendor, formatDateTime } from "@/lib/evaluation-utils";
+import { LoadingScreen } from "@/components/ui/loading-screen";
 
 export default function PrintEvalPage({ params }: { params: any }) {
   const unwrappedParams = use(params);
@@ -13,11 +14,7 @@ export default function PrintEvalPage({ params }: { params: any }) {
   const { evaluations, isLoaded } = useEvaluations();
 
   if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">
-        جاري تحميل بيانات التقرير...
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   const data: any = evaluations.find((ev: any) => ev.id === evalId);
@@ -115,8 +112,6 @@ export default function PrintEvalPage({ params }: { params: any }) {
         <div className="flex justify-between items-center border-b-2 border-[#0D4435] pb-6 mb-8">
           <div className="flex items-center gap-4">
             <img src="/logo.png" alt="الشعار" className="h-16 w-auto grayscale-0 print:grayscale-0" />
-            <div className="h-12 w-[1px] bg-gray-300"></div>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Saudi_Vision_2030_logo.svg/1200px-Saudi_Vision_2030_logo.svg.png" alt="رؤية 2030" className="h-12 w-auto grayscale-0 print:grayscale-0" />
           </div>
           <div className="text-left">
             <h2 className="text-xl font-black text-[#0D4435] mb-1">محضر لجنة فحص العروض التقنية</h2>

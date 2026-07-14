@@ -147,10 +147,10 @@ export const CreateEvalModal = (props: any) => {
                           <div className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                               <label className="text-sm font-black text-[#0D4435]">
-                                قائمة الموردين المتنافسين{" "}
+                                {form.type === "VENDOR_PERFORMANCE" ? "بيانات المتعاقد" : "قائمة الموردين المتنافسين"}{" "}
                                 <span className="text-red-500">*</span>
                               </label>
-                              {!editingEval && (
+                              {!editingEval && form.type !== "VENDOR_PERFORMANCE" && (
                                 <span className="text-[10px] bg-[#C5A059]/10 text-[#C5A059] px-2 py-1 rounded-md font-bold border border-[#C5A059]/20">
                                   سيتم تجميعهم بطلب واحد
                                 </span>
@@ -174,7 +174,7 @@ export const CreateEvalModal = (props: any) => {
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="md:col-span-1">
                                       <label className={labelClasses}>
-                                        اسم المورد ({vIdx + 1}){" "}
+                                        {form.type === "VENDOR_PERFORMANCE" ? "اسم المتعاقد" : `اسم المورد (${vIdx + 1})`}{" "}
                                         <span className="text-red-500">*</span>
                                       </label>
                                       <input

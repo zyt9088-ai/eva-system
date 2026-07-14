@@ -1,3 +1,4 @@
+import { VENDOR_PERFORMANCE_FLAT_CRITERIA, calculateVendorPerformanceAverages } from '@/lib/evaluation-utils';
 <AnimatePresence>
           {viewingEval && (
             <div
@@ -21,7 +22,7 @@
                   className="relative bg-gray-50 rounded-2xl shadow-2xl w-full flex flex-col print:shadow-none print:w-full z-10 my-8"
                   // @ts-ignore
                   style={{
-                    maxWidth: viewingEval.type === "EVF" ? "1000px" : "850px",
+                    maxWidth: viewingEval.type === "EVF" || viewingEval.type === "VENDOR_PERFORMANCE" ? "1000px" : "850px",
                   }}
                 >
                   <div className="sticky top-0 bg-[#0D4435] px-5 sm:px-6 py-4 flex justify-between items-center shrink-0 z-20 shadow-sm print:relative print:bg-transparent print:border-b print:border-gray-300 rounded-t-2xl print:rounded-none">
@@ -204,11 +205,11 @@
 
                           <div
                             // @ts-ignore
-                            className={`grid grid-cols-1 ${viewingEval.type === "EVF" && finalStatus !== "قيد الإجراء" ? "lg:grid-cols-3" : ""} gap-6 shrink-0`}
+                            className={`grid grid-cols-1 ${(viewingEval.type === "EVF" || viewingEval.type === "VENDOR_PERFORMANCE") && finalStatus !== "قيد الإجراء" ? "lg:grid-cols-3" : ""} gap-6 shrink-0`}
                           >
                             <div
                               // @ts-ignore
-                              className={`bg-white rounded-xl border border-gray-200 shadow-sm p-5 ${viewingEval.type === "EVF" && finalStatus !== "قيد الإجراء" ? "lg:col-span-2" : ""}`}
+                              className={`bg-white rounded-xl border border-gray-200 shadow-sm p-5 ${(viewingEval.type === "EVF" || viewingEval.type === "VENDOR_PERFORMANCE") && finalStatus !== "قيد الإجراء" ? "lg:col-span-2" : ""}`}
                             >
                               <h4 className="font-bold text-[#0D4435] text-sm mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
                                 <Users size={18} className="text-[#C5A059]" />{" "}
@@ -255,7 +256,21 @@
 
                                   if (hasEvaluated) {
                                     // @ts-ignore
-                                    if (viewingEval.type === "EVF") {
+                                    if (viewingEval.type === "VENDOR_PERFORMANCE") {
+                                      let indTotal = 0;
+                                      VENDOR_PERFORMANCE_FLAT_CRITERIA.forEach((crit, cIdx) => {
+                                        const s = getSafeScore(viewingEval.itemEvaluations, i, activeVendorTab, cIdx);
+                                        if (s !== undefined && s !== "") {
+                                          indTotal += (parseFloat(s) / 100) * (crit.weight * 100);
+                                        }
+                                      });
+                                      individualResult = (
+                                        <div className="flex justify-center items-center gap-1 bg-[#C5A059] text-white px-3 py-1.5 rounded-lg w-full shadow-sm mt-3">
+                                          <span className="font-black text-sm">{indTotal.toFixed(2)}</span>
+                                          <span className="text-[10px] text-white/80">%</span>
+                                        </div>
+                                      );
+                                    } else if (viewingEval.type === "EVF") {
                                       let indTotal = 0;
                                       // @ts-ignore
                                       viewingEval.evfCriteria?.forEach(

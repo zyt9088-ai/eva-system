@@ -196,7 +196,7 @@ export function useEvaluationForm(evaluations: any[], setEvaluations: any, saveE
     setIsModalOpen(true);
   };
 
-  const openCreateModal = (type: "GENERAL" | "EVF") => {
+  const openCreateModal = (type: "GENERAL" | "EVF" | "VENDOR_PERFORMANCE") => {
     setEditingEval(null);
     setForm({
       type,

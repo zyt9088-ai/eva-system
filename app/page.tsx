@@ -101,6 +101,29 @@ export default function LoginPage() {
             >
               تسجيل الدخول <ArrowRight size={18} />
             </button>
+
+            <div className="relative mt-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500 font-bold">أو الدخول عبر</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => alert('سيتم تفعيل الدخول عبر حسابات مايكروسوفت قريباً')}
+              className="w-full h-12 mt-6 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl font-black text-sm flex items-center justify-center gap-3 transition-all active:scale-95 shadow-sm"
+            >
+              Microsoft
+              <svg className="w-5 h-5" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 0H0V10H10V0Z" fill="#f25022"/>
+                <path d="M21 0H11V10H21V0Z" fill="#7fba00"/>
+                <path d="M10 11H0V21H10V11Z" fill="#00a4ef"/>
+                <path d="M21 11H11V21H21V11Z" fill="#ffb900"/>
+              </svg>
+            </button>
           </form>
         </div>
       </motion.div>

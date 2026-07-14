@@ -8,7 +8,7 @@ import { StatsCards } from "@/components/features/evaluations/stats-cards";
 import { FilterBar } from "@/components/features/evaluations/filter-bar";
 import { EvaluationList } from "@/components/features/evaluations/evaluation-list";
 import { AppHeader } from "@/components/layout/app-header";
-import { DashboardHeader } from "@/components/features/evaluations/dashboard-header";
+import { VendorPerfHeader } from "@/components/features/evaluations/vendor-perf-header";
 import { EvaluationTabs } from "@/components/features/evaluations/evaluation-tabs";
 import { Toaster, toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -17,7 +17,7 @@ import { useEvaluationForm } from "@/hooks/useEvaluationForm";
 import { getHighestScore } from "@/lib/evaluation-utils";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 
-export default function TechnicalEvalDashboard() {
+export default function VendorPerfDashboard() {
   const router = useRouter();
   const { evaluations, isLoaded, saveEvaluation, deleteEvaluation, updateStatus } = useEvaluations();
   
@@ -96,7 +96,7 @@ export default function TechnicalEvalDashboard() {
     toast.success("تم تصدير التقرير بنجاح");
   };
 
-  let filteredAndSortedData = activeTab === "ALL" ? evaluations.filter(ev => ev.type !== "VENDOR_PERFORMANCE") : evaluations.filter((ev) => ev.type === activeTab && ev.type !== "VENDOR_PERFORMANCE");
+  let filteredAndSortedData = evaluations.filter((ev) => ev.type === "VENDOR_PERFORMANCE");
   
   if (searchTerm) {
     const lower = searchTerm.toLowerCase();
@@ -130,11 +130,11 @@ export default function TechnicalEvalDashboard() {
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   const paginatedData = filteredAndSortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const statsTotalCount = evaluations.filter(ev => ev.type !== "VENDOR_PERFORMANCE").length;
-  const statsEvfCount = evaluations.filter((ev) => ev.type === "EVF").length;
-  const statsGeneralCount = evaluations.filter((ev) => ev.type === "GENERAL").length;
-  const statsApprovedCount = evaluations.filter((ev) => ev.status === "APPROVED" && ev.type !== "VENDOR_PERFORMANCE").length;
-  const statsPendingCount = evaluations.filter((ev) => (ev.status === "PENDING" || ev.status === "قيد التجهيز") && ev.type !== "VENDOR_PERFORMANCE").length;
+  const statsTotalCount = evaluations.filter((ev) => ev.type === "VENDOR_PERFORMANCE").length;
+  const statsEvfCount = 0;
+  const statsGeneralCount = 0;
+  const statsApprovedCount = evaluations.filter((ev) => ev.type === "VENDOR_PERFORMANCE" && (ev.status === "APPROVED" || ev.status === "EVALUATED")).length;
+  const statsPendingCount = evaluations.filter((ev) => ev.type === "VENDOR_PERFORMANCE" && (ev.status === "PENDING" || ev.status === "قيد التجهيز")).length;
   const progressPercentage = statsTotalCount === 0 ? 0 : Math.round((statsApprovedCount / statsTotalCount) * 100);
 
   if (!isLoaded) return <LoadingScreen />;
@@ -160,7 +160,7 @@ export default function TechnicalEvalDashboard() {
       <AppHeader />
 
       <main className="flex-1 pb-20 pt-8 px-4 md:px-6 container mx-auto w-full">
-        <DashboardHeader handleExportCSV={handleExportCSV} openCreateModal={openCreateModal} />
+        <VendorPerfHeader handleExportCSV={handleExportCSV} openCreateModal={openCreateModal} />
         
         <StatsCards 
           statsTotalCount={statsTotalCount}
@@ -172,7 +172,7 @@ export default function TechnicalEvalDashboard() {
         />
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mt-8 mb-6 no-print">
-          <EvaluationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+          
           
           <FilterBar
             viewMode={viewMode}

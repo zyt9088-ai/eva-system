@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   LogOut,
   ChevronDown,
+  Wallet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -136,6 +137,57 @@ export default function DashboardHome() {
             </p>
             <div className="inline-flex items-center gap-2 text-sm font-black text-[#0D4435] group-hover:text-[#C5A059] transition-colors">
               الدخول للنظام <ArrowLeft size={16} />
+            </div>
+          </motion.div>
+          <motion.div
+            onClick={() => {}}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            whileHover={{ y: -5 }}
+            className="bg-white/80 rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden group cursor-not-allowed opacity-90"
+          >
+            <span className="absolute top-6 left-6 bg-gray-100 text-gray-500 text-xs font-black px-3 py-1 rounded-full border border-gray-200 z-10">
+              قريباً
+            </span>
+            <div className="absolute top-0 right-0 w-2 h-full bg-gray-400 transition-all group-hover:w-full group-hover:opacity-5"></div>
+            <div className="w-14 h-14 bg-gray-50 rounded-xl flex items-center justify-center mb-6 border border-gray-100 transition-transform group-hover:scale-110">
+              <Users size={28} className="text-gray-400" />
+            </div>
+            <h3 className="text-xl font-black text-gray-700 mb-2">
+              إدارة تقييم الموردين
+            </h3>
+            <p className="text-sm font-bold text-gray-400 mb-6 leading-relaxed">
+              إدارة تقييمات أداء الموردين بناءً على معايير الجودة والتسليم وسرعة التجاوب.
+            </p>
+            <div className="inline-flex items-center gap-2 text-sm font-black text-gray-400">
+              النظام قيد التجهيز
+            </div>
+          </motion.div>
+          
+          <motion.div
+            onClick={() => {}}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            whileHover={{ y: -5 }}
+            className="bg-white/80 rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden group cursor-not-allowed opacity-90"
+          >
+            <span className="absolute top-6 left-6 bg-gray-100 text-gray-500 text-xs font-black px-3 py-1 rounded-full border border-gray-200 z-10">
+              قريباً
+            </span>
+            <div className="absolute top-0 right-0 w-2 h-full bg-gray-400 transition-all group-hover:w-full group-hover:opacity-5"></div>
+            <div className="w-14 h-14 bg-gray-50 rounded-xl flex items-center justify-center mb-6 border border-gray-100 transition-transform group-hover:scale-110">
+              <Wallet size={28} className="text-gray-400" />
+            </div>
+            <h3 className="text-xl font-black text-gray-700 mb-2">
+              التقييم المالي
+            </h3>
+            <p className="text-sm font-bold text-gray-400 mb-6 leading-relaxed">
+              إدارة التقييم المالي للعروض وتحليل التكاليف ومقارنة الأسعار بشكل آلي.
+            </p>
+            <div className="inline-flex items-center gap-2 text-sm font-black text-gray-400">
+              النظام قيد التجهيز
             </div>
           </motion.div>
         </div>

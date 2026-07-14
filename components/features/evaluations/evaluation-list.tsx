@@ -47,9 +47,15 @@ export const EvaluationList = ({
                 let StatusIcon = Clock;
 
                 if (ev.status === "EVALUATED") {
-                  statusStyle = "text-blue-800 bg-blue-100 border-blue-200";
-                  statusText = "بانتظار مراجعة المشتريات";
-                  StatusIcon = AlertCircle;
+                  if (ev.type === "VENDOR_PERFORMANCE") {
+                    statusStyle = "text-green-800 bg-green-100 border-green-200";
+                    statusText = "تم التقييم";
+                    StatusIcon = CheckCircle2;
+                  } else {
+                    statusStyle = "text-blue-800 bg-blue-100 border-blue-200";
+                    statusText = "بانتظار مراجعة المشتريات";
+                    StatusIcon = AlertCircle;
+                  }
                 } else if (ev.status === "AWAITING_JUSTIFICATION") {
                   statusStyle = "text-purple-800 bg-purple-100 border-purple-200";
                   statusText = "بانتظار تبرير P.M";
@@ -103,7 +109,7 @@ export const EvaluationList = ({
                       </h3>
                       {ev.deadline && (
                         <div className="mb-3 text-[11px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded inline-flex items-center gap-1 w-fit border border-red-100">
-                          <Clock size={12} /> ينتهي في: {ev.deadline}
+                          <Clock size={12} /> ينتهي في: {ev.deadline.split('T')[0]}
                         </div>
                       )}
                       <div className="flex-1 space-y-4">
@@ -173,8 +179,13 @@ export const EvaluationList = ({
                       let statusText = "بانتظار التقييم";
 
                       if (ev.status === "EVALUATED") {
-                        statusStyle = "text-blue-800 bg-blue-100 border-blue-200";
-                        statusText = "بانتظار مراجعة المشتريات";
+                        if (ev.type === "VENDOR_PERFORMANCE") {
+                          statusStyle = "text-green-800 bg-green-100 border-green-200";
+                          statusText = "تم التقييم";
+                        } else {
+                          statusStyle = "text-blue-800 bg-blue-100 border-blue-200";
+                          statusText = "بانتظار مراجعة المشتريات";
+                        }
                       } else if (ev.status === "AWAITING_JUSTIFICATION") {
                         statusStyle = "text-purple-800 bg-purple-100 border-purple-200";
                         statusText = "بانتظار تبرير P.M";
@@ -194,7 +205,7 @@ export const EvaluationList = ({
                               </span>
                               {ev.deadline && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded">
-                                  <Clock size={10} /> {ev.deadline}
+                                  <Clock size={10} /> {ev.deadline.split('T')[0]}
                                 </span>
                               )}
                             </div>

@@ -1,3 +1,5 @@
+import { VENDOR_PERFORMANCE_CATEGORIES } from '@/lib/evaluation-utils';
+import React from 'react';
 import { Calculator, ClipboardList, Briefcase, Paperclip, CalendarClock } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -51,7 +53,86 @@ export function EvaluationForm({
           <div>
             <h1 className="text-2xl font-black text-[#0D4435] flex items-center gap-3 mb-2">
               <div className="p-2 bg-[#C5A059]/10 rounded-lg">
-                {data.type === "EVF" ? <Calculator size={24} className="text-[#C5A059]" /> : <ClipboardList size={24} className="text-[#C5A059]" />}
+                
+                  {data.type === "VENDOR_PERFORMANCE"
+                    ? (() => {
+                        let globalIndex = 0;
+                        return VENDOR_PERFORMANCE_CATEGORIES.map((cat, catIdx) => (
+                          <React.Fragment key={catIdx}>
+                            <tr className="bg-gray-100/80">
+                              <td colSpan={2 + vendorsList.length} className="py-3 px-5 font-black text-[#0D4435] text-right border-y border-gray-200">
+                                {cat.name} <span className="text-[#C5A059] text-xs bg-yellow-50 px-2 py-1 rounded-md border border-yellow-100">(الوزن: {cat.weight * 100}%)</span>
+                              </td>
+                            </tr>
+                            {cat.criteria.map((crit, cIdx) => {
+                              const currentIndex = globalIndex++;
+                              return (
+                                <tr key={cIdx} className="hover:bg-gray-50 transition-colors">
+                                  <td className="py-4 px-4 text-center font-black text-gray-400 border-l border-gray-200 align-top">{currentIndex + 1}</td>
+                                  <td className="py-4 px-5 font-bold text-gray-900 border-l border-gray-200 whitespace-normal min-w-[200px] align-top">
+                                    <div className="font-black text-[#0D4435] mb-1">{crit.main}</div>
+                                    <div className="text-xs text-gray-500 mb-3">{crit.indicator}</div>
+                                    
+                                    <div className="flex gap-1 text-[10px] mt-2 border-t border-gray-100 pt-2">
+                                      <div className="flex-1 bg-green-50 text-green-700 p-1.5 rounded border border-green-100 text-center" title="تقييم ممتاز">
+                                        {crit.ranges.green}
+                                      </div>
+                                      <div className="flex-1 bg-blue-50 text-blue-700 p-1.5 rounded border border-blue-100 text-center" title="تقييم جيد">
+                                        {crit.ranges.blue}
+                                      </div>
+                                      <div className="flex-1 bg-red-50 text-red-700 p-1.5 rounded border border-red-100 text-center" title="تقييم ضعيف">
+                                        {crit.ranges.red}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  {vendorsList.map((_, vIdx) => {
+                                    const scoreVal = currentEvaluations[vIdx]?.[currentIndex]?.score;
+                                    return (
+                                      <td key={vIdx} className="py-3 px-4 text-center border-l border-gray-200 align-top">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          step="1"
+                                          required
+                                          className="w-20 h-10 mx-auto bg-gray-50 border border-gray-300 rounded-lg text-center font-black text-lg focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] outline-none"
+                                          value={scoreVal ?? ""}
+                                          onChange={(e) => handleEvfScore(vIdx, currentIndex, e.target.value)}
+                                          placeholder="0"
+                                        />
+                                        {scoreVal !== "" && scoreVal !== undefined && parseFloat(scoreVal) < 70 && (
+                                          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-2">
+                                            <input
+                                              type="text"
+                                              required
+                                              className="w-full h-8 bg-white border border-red-200 rounded-lg px-2 text-[11px] font-semibold text-gray-900 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-gray-400 shadow-sm"
+                                              value={currentEvaluations[vIdx]?.[currentIndex]?.reason || ""}
+                                              onChange={(e) => {
+                                                setCurrentEvaluations((prev: any) => ({
+                                                  ...prev,
+                                                  [vIdx]: {
+                                                    ...(prev[vIdx] || {}),
+                                                    [currentIndex]: {
+                                                      ...((prev[vIdx] || {})[currentIndex] || {}),
+                                                      reason: e.target.value,
+                                                    },
+                                                  },
+                                               }));
+                                              }}
+                                              placeholder="يرجى تبرير التقييم..."
+                                            />
+                                          </motion.div>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        ));
+                      })()
+                    : data.type === "EVF" ? <Calculator size={24} className="text-[#C5A059]" /> : <ClipboardList size={24} className="text-[#C5A059]" />}
               </div>
               نموذج التقييم الفني {data.type === "EVF" ? "(موزون EVF)" : "(مطابقة مواصفات)"}
             </h1>
