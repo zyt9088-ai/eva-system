@@ -10,9 +10,10 @@ import { EvaluationList } from "@/components/features/evaluations/evaluation-lis
 import { AppHeader } from "@/components/layout/app-header";
 import { VendorPerfHeader } from "@/components/features/evaluations/vendor-perf-header";
 import { EvaluationTabs } from "@/components/features/evaluations/evaluation-tabs";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEvaluations } from "@/hooks/useEvaluations";
+import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { useEvaluationForm } from "@/hooks/useEvaluationForm";
 import { getHighestScore } from "@/lib/evaluation-utils";
 import { LoadingScreen } from "@/components/ui/loading-screen";
@@ -20,7 +21,8 @@ import { LoadingScreen } from "@/components/ui/loading-screen";
 export default function VendorPerfDashboard() {
   const router = useRouter();
   const { evaluations, isLoaded, saveEvaluation, deleteEvaluation, updateStatus } = useEvaluations();
-  
+  const { isAdmin } = useCurrentProfile();
+
   const evalFormState = useEvaluationForm(evaluations, null, saveEvaluation);
   const {
     form, setForm, step, setStep, editingEval, setEditingEval, isModalOpen, setIsModalOpen,
@@ -141,8 +143,6 @@ export default function VendorPerfDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50/30 flex flex-col print:bg-white" dir="rtl">
-      <Toaster position="top-center" richColors />
-
       <style dangerouslySetInnerHTML={{
         __html: `
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
@@ -205,6 +205,7 @@ export default function VendorPerfDashboard() {
           updateStatus={updateStatus}
           copyEvalLink={copyEvalLink}
           openHistoryModal={openHistoryModal}
+          isAdmin={isAdmin}
         />
 
         {totalPages > 1 && (

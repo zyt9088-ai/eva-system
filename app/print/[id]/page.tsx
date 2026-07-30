@@ -93,7 +93,7 @@ export default function PrintEvalPage({ params }: { params: any }) {
         }}
       />
 
-      <div className="max-w-[210mm] mx-auto pt-20 mb-6 flex justify-between items-center no-print px-4 relative z-[99999]">
+      <div className="max-w-[210mm] mx-auto pt-20 mb-6 flex justify-between items-center no-print px-4 relative z-99999">
         <Link
           href="/tech-eval"
           className="inline-flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-[#0D4435] transition-colors bg-white px-4 py-2.5 rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50"

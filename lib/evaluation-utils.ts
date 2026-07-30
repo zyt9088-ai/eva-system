@@ -1,3 +1,21 @@
+export const mapEvaluationRow = (ev: any) => ({
+  id: ev.id,
+  prNumber: ev.pr_number,
+  projectName: ev.project_name,
+  deadline: ev.deadline,
+  type: ev.type,
+  currentTotalWeight: ev.current_total_weight,
+  status: ev.status,
+  createdAt: ev.created_at,
+  date: ev.created_at?.split("T")[0],
+  vendors: ev.vendors || [],
+  evaluators: ev.evaluators || [],
+  evfCriteria: ev.evf_criteria || [],
+  evaluatedItems: ev.evaluated_items?.map((i: any) => i.item_name) || [],
+  itemEvaluations: ev.item_evaluations || {},
+  history: [],
+});
+
 export const getSafeScore = (itemEvals: any, evalIdx: number, vendorIdx: number, critIdx: number) => {
   if (!itemEvals) return undefined;
   const evalData = itemEvals[evalIdx];

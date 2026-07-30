@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { mapEvaluationRow } from "@/lib/evaluation-utils";
 
 export interface Evaluation {
   id?: string;
@@ -44,26 +45,7 @@ export function useEvaluations() {
         return [];
       }
 
-      return data.map((ev) => {
-        // Map data back to prototype frontend format
-        return {
-          id: ev.id,
-          prNumber: ev.pr_number,
-          projectName: ev.project_name,
-          deadline: ev.deadline,
-          type: ev.type,
-          currentTotalWeight: ev.current_total_weight,
-          status: ev.status,
-          createdAt: ev.created_at,
-          date: ev.created_at?.split("T")[0],
-          vendors: ev.vendors || [],
-          evaluators: ev.evaluators || [],
-          evfCriteria: ev.evf_criteria || [],
-          evaluatedItems: ev.evaluated_items?.map((i: any) => i.item_name) || [],
-          itemEvaluations: ev.item_evaluations || {},
-          history: [],
-        };
-      });
+      return data.map(mapEvaluationRow);
     },
   });
 

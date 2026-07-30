@@ -74,7 +74,7 @@ export const StatsCards = ({
             initial={{ width: 0 }}
             animate={{ width: `${progressPercentage}%` }}
             transition={{ duration: 1, ease: "easeOut" }}
-            className="h-full bg-gradient-to-l from-[#C5A059] to-[#0D4435] rounded-full"
+            className="h-full bg-linear-to-l from-[#C5A059] to-[#0D4435] rounded-full"
           />
         </div>
       </div>

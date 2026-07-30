@@ -5,7 +5,7 @@ import { ClipboardCheck } from "lucide-react";
 
 export function LoadingScreen() {
   return (
-    <div className="fixed inset-0 bg-gray-50/90 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center min-h-screen" dir="rtl">
+    <div className="fixed inset-0 bg-gray-50/90 backdrop-blur-sm z-9999 flex flex-col items-center justify-center min-h-screen" dir="rtl">
       <div className="relative flex items-center justify-center">
         {/* Outer Ring */}
         <motion.div
@@ -23,7 +23,7 @@ export function LoadingScreen() {
         <motion.div
           animate={{ scale: [0.95, 1.05, 0.95] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="bg-gradient-to-tr from-[#0D4435] to-[#125946] w-16 h-16 rounded-2xl shadow-xl flex items-center justify-center relative overflow-hidden border border-[#1a6652]"
+          className="bg-linear-to-tr from-[#0D4435] to-[#125946] w-16 h-16 rounded-2xl shadow-xl flex items-center justify-center relative overflow-hidden border border-[#1a6652]"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.5 }}

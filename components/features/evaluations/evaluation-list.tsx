@@ -11,6 +11,7 @@ interface EvaluationListProps {
   handleEdit: (ev: any) => void;
   handleDelete: (id: string) => void;
   copyEvalLink: (id: string) => void;
+  isAdmin?: boolean;
 }
 
 export const EvaluationList = ({
@@ -22,6 +23,7 @@ export const EvaluationList = ({
   handleEdit,
   handleDelete,
   copyEvalLink,
+  isAdmin,
 }: EvaluationListProps) => {
   return (
     <AnimatePresence mode="wait">
@@ -99,9 +101,11 @@ export const EvaluationList = ({
                           <button onClick={() => copyEvalLink(ev.id)} className="text-gray-400 hover:text-blue-600 transition-colors" title="نسخ الرابط">
                             <LinkIcon size={16} />
                           </button>
-                          <button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="حذف">
-                            <Trash2 size={16} />
-                          </button>
+                          {isAdmin && (
+                            <button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="حذف">
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </div>
                       <h3 className="font-bold text-[#222222] text-lg leading-snug line-clamp-2 mb-3" title={ev.projectName}>
@@ -232,7 +236,9 @@ export const EvaluationList = ({
                               <button onClick={() => copyEvalLink(ev.id)} className="text-gray-400 hover:text-blue-600 transition-colors" title="نسخ الرابط"><LinkIcon size={18} /></button>
                               <button onClick={() => openViewingModal(ev)} className="text-gray-400 hover:text-[#0D4435] transition-colors" title="إطلاع"><Eye size={18} /></button>
                               <button onClick={() => handleEdit(ev)} className="text-gray-400 hover:text-[#C5A059] transition-colors" title="تعديل"><Pencil size={18} /></button>
-                              <button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="حذف"><Trash2 size={18} /></button>
+                              {isAdmin && (
+                                <button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="حذف"><Trash2 size={18} /></button>
+                              )}
                             </div>
                           </td>
                         </motion.tr>

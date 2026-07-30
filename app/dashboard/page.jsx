@@ -10,13 +10,22 @@ import {
   LogOut,
   ChevronDown,
   Wallet,
+  ShieldCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
+import { useCurrentProfile } from "@/hooks/useCurrentProfile";
+
+const ROLE_LABELS = {
+  admin: "مدير مشتريات",
+  specialist: "أخصائي مشتريات",
+};
 
 export default function DashboardHome() {
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const { profile, isAdmin } = useCurrentProfile();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -28,7 +37,8 @@ export default function DashboardHome() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push("/");
   };
 
@@ -48,14 +58,24 @@ export default function DashboardHome() {
       />
 
       <header className="bg-white border-b border-gray-200 px-6 lg:px-10 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center gap-4">
+        <Link href="/dashboard" className="flex items-center gap-4">
           <img
             src="/logo.png"
             alt="شعار النظام"
             className="h-10 w-auto object-contain"
           />
           <h2 className="text-2xl font-black text-[#0D4435]">نظام قيّم</h2>
-        </div>
+        </Link>
+
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <Link
+              href="/dashboard/users"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-[#0D4435] transition-colors border border-gray-200"
+            >
+              <ShieldCheck size={16} /> إدارة المستخدمين
+            </Link>
+          )}
 
         <div className="relative" ref={dropdownRef}>
           <button
@@ -67,7 +87,9 @@ export default function DashboardHome() {
             </div>
             <div className="text-right hidden sm:block">
               <p className="text-[10px] text-gray-500 font-bold">مرحباً بك</p>
-              <p className="text-xs font-black text-[#0D4435]">مدير النظام</p>
+              <p className="text-xs font-black text-[#0D4435]">
+                {profile ? ROLE_LABELS[profile.role] : "..."}
+              </p>
             </div>
             <ChevronDown
               size={16}
@@ -92,7 +114,7 @@ export default function DashboardHome() {
                     className="text-sm font-black text-gray-800 truncate"
                     dir="ltr"
                   >
-                    admin@ladun.com
+                    {profile?.email ?? "..."}
                   </p>
                 </div>
                 <button
@@ -105,6 +127,7 @@ export default function DashboardHome() {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
         </div>
       </header>
 

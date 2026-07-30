@@ -2,7 +2,7 @@
 import { VENDOR_PERFORMANCE_FLAT_CRITERIA } from '@/lib/evaluation-utils';
 
 import { useState, use } from "react";
-import { useEvaluations } from "@/hooks/useEvaluations";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { EvaluatorSelector } from "@/components/features/evaluations/public/evaluator-selector";
 import { EvaluationForm } from "@/components/features/evaluations/public/evaluation-form";
 import { SuccessScreen, ApprovedScreen, PendingReviewScreen } from "@/components/features/evaluations/public/status-screens";
@@ -12,17 +12,35 @@ export default function PublicEvalPage({ params }: { params: any }) {
   const unwrappedParams = use(params);
   const evalId = (unwrappedParams as any).id;
 
-  const { evaluations, isLoaded, saveEvaluation } = useEvaluations();
+  const { data, isLoading } = useQuery({
+    queryKey: ["public-eval", evalId],
+    queryFn: async () => {
+      const res = await fetch(`/api/public-eval/${evalId}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data;
+    },
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async ({ evaluatorIndex, evaluations }: { evaluatorIndex: number; evaluations: any }) => {
+      const res = await fetch(`/api/public-eval/${evalId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ evaluatorIndex, evaluations }),
+      });
+      if (!res.ok) throw new Error("submit failed");
+    },
+  });
+
   const [selectedEvaluatorIndex, setSelectedEvaluatorIndex] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [currentEvaluations, setCurrentEvaluations] = useState<any>({});
   const [isAgreed, setIsAgreed] = useState(false);
 
-  if (!isLoaded) {
+  if (isLoading) {
     return <LoadingScreen />;
   }
-
-  const data: any = evaluations.find((ev: any) => ev.id === evalId);
 
   if (!data) {
     return (
@@ -40,10 +58,10 @@ export default function PublicEvalPage({ params }: { params: any }) {
 
   if (selectedEvaluatorIndex === null) {
     return (
-      <EvaluatorSelector 
-        data={data} 
-        evaluatorsList={evaluatorsList} 
-        setSelectedEvaluatorIndex={setSelectedEvaluatorIndex} 
+      <EvaluatorSelector
+        data={data}
+        evaluatorsList={evaluatorsList}
+        setSelectedEvaluatorIndex={setSelectedEvaluatorIndex}
       />
     );
   }
@@ -95,33 +113,9 @@ export default function PublicEvalPage({ params }: { params: any }) {
     }));
   };
 
-  const handleSubmit = (e: any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
-
-    let allEvaluations = data.itemEvaluations || {};
-    allEvaluations[selectedEvaluatorIndex] = {
-      evals: currentEvaluations,
-      timestamp: new Date().toISOString(),
-      declaration: "تم الإقرار إلكترونياً",
-    };
-
-    let isEveryoneDone = true;
-    evaluatorsList.forEach((_: any, idx: number) => {
-      if (!allEvaluations[idx]) isEveryoneDone = false;
-    });
-
-    let overallStatus = data.status;
-    if (isEveryoneDone && (overallStatus === "PENDING" || overallStatus === "قيد التجهيز")) {
-      overallStatus = "EVALUATED";
-    }
-
-    const updated = {
-      ...data,
-      status: overallStatus,
-      itemEvaluations: allEvaluations,
-    };
-
-    saveEvaluation(updated, true);
+    await submitMutation.mutateAsync({ evaluatorIndex: selectedEvaluatorIndex, evaluations: currentEvaluations });
     setSubmitted(true);
   };
 
@@ -153,7 +147,7 @@ export default function PublicEvalPage({ params }: { params: any }) {
   };
 
   return (
-    <EvaluationForm 
+    <EvaluationForm
       data={data}
       vendorsList={vendorsList}
       currentEvaluatorName={currentEvaluator.name}

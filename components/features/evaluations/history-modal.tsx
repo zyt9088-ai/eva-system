@@ -59,7 +59,7 @@ export const HistoryModal = ({ isOpen, onClose, historyEval }: HistoryModalProps
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -93,7 +93,7 @@ export const HistoryModal = ({ isOpen, onClose, historyEval }: HistoryModalProps
                 {generateTimeline(historyEval).map((evt, idx) => (
                   <div key={idx} className="relative">
                     <span
-                      className={`absolute -right-[31px] w-4 h-4 rounded-full border-2 border-white shadow-sm ${evt.isEval ? "bg-[#C5A059]" : "bg-[#0D4435]"}`}
+                      className={`absolute -right-7.75 w-4 h-4 rounded-full border-2 border-white shadow-sm ${evt.isEval ? "bg-[#C5A059]" : "bg-[#0D4435]"}`}
                     ></span>
                     <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                       <div className="flex justify-between items-start mb-2">

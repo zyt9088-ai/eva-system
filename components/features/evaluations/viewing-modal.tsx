@@ -24,7 +24,7 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
     <AnimatePresence>
           {viewingEval && (
             <div
-              className="fixed inset-0 z-[99999] overflow-y-auto print:overflow-visible custom-scrollbar"
+              className="fixed inset-0 z-99999 overflow-y-auto print:overflow-visible custom-scrollbar"
               dir="rtl"
             >
               <div className="flex min-h-full items-center justify-center p-4 sm:p-6 print:p-0">
