@@ -17,7 +17,6 @@ export function EvaluatorSelector({
           __html: `
             @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
             * { font-family: 'Cairo', sans-serif !important; }
-            header, footer, nav { display: none !important; } 
             body, main { padding-top: 0 !important; margin-top: 0 !important; background-color: #F8FAFC; }
           `,
         }}

@@ -7,7 +7,7 @@ export interface CurrentProfile {
   id: string;
   email: string;
   fullName: string | null;
-  role: "admin" | "specialist";
+  role: "admin" | "specialist" | "employee";
 }
 
 export function useCurrentProfile() {

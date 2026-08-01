@@ -2,16 +2,21 @@
 -- Safe to re-run: every statement is idempotent (create-if-not-exists / drop-if-exists / create-or-replace).
 
 -- 1. profiles table -----------------------------------------------------
--- IMPORTANT: a row here is the ONLY thing that grants access to the internal
--- dashboard. Anyone who logs in via Microsoft without a matching pending_invite
--- gets NO row created (see handle_new_user below) and is sent to /no-access.
+-- Every authenticated @mngdp.com user gets a row here (see handle_new_user
+-- below). Role defaults to 'employee' unless pre-invited as admin/specialist.
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
   full_name text,
-  role text not null default 'specialist' check (role in ('admin', 'specialist')),
+  role text not null default 'employee' check (role in ('admin', 'specialist', 'employee')),
   created_at timestamptz not null default now()
 );
+
+-- widen the allowed roles if this table already existed from an earlier run
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check
+  check (role in ('admin', 'specialist', 'employee'));
+alter table public.profiles alter column role set default 'employee';
 
 -- helper used by policies below (must exist before any policy references it)
 create or replace function public.is_admin()
@@ -26,8 +31,9 @@ as $$
 $$;
 
 -- 1b. pending invites ------------------------------------------------------
--- Lets an admin pre-assign a role to an @mngdp.com email BEFORE that person
--- ever signs in. Consumed automatically the first time they log in via Azure.
+-- Lets an admin pre-assign an elevated role (admin/specialist) to an
+-- @mngdp.com email BEFORE that person ever signs in. Consumed automatically
+-- on first login. Anyone NOT pre-invited still gets in, just as 'employee'.
 create table if not exists public.pending_invites (
   email text primary key check (email ~* '^[^@\s]+@mngdp\.com$'),
   role text not null default 'specialist' check (role in ('admin', 'specialist')),
@@ -41,9 +47,9 @@ drop policy if exists "admin manages invites" on public.pending_invites;
 create policy "admin manages invites" on public.pending_invites
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
--- Whenever a new user signs in via Azure: only create a profile (i.e. grant
--- access) if their email was pre-invited. Everyone else gets no profile row
--- at all, so the app can send them to /no-access.
+-- Whenever a new user signs in via Azure: always create a profile. Uses the
+-- pre-invited role if one exists, otherwise defaults to 'employee' — anyone
+-- in the organization can log in, just scoped to their permissions.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -54,18 +60,16 @@ declare
 begin
   select role into invited_role from public.pending_invites where email = new.email;
 
-  if invited_role is not null then
-    insert into public.profiles (id, email, full_name, role)
-    values (
-      new.id,
-      new.email,
-      coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'),
-      invited_role
-    )
-    on conflict (id) do nothing;
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'),
+    coalesce(invited_role, 'employee')
+  )
+  on conflict (id) do nothing;
 
-    delete from public.pending_invites where email = new.email;
-  end if;
+  delete from public.pending_invites where email = new.email;
 
   return new;
 end;
@@ -76,17 +80,17 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- backfill: only for auth.users rows that already exist AND match a pending
--- invite by email (covers people who logged in before this table existed).
--- Anyone else who already logged in without an invite stays profile-less.
+-- backfill: create a profile for every existing auth.users row that doesn't
+-- have one yet (covers anyone who logged in before this migration existed,
+-- including the old invite-only version that skipped uninvited accounts).
 insert into public.profiles (id, email, full_name, role)
 select
   u.id,
   u.email,
   coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name'),
-  pi.role
+  coalesce(pi.role, 'employee')
 from auth.users u
-join public.pending_invites pi on pi.email = u.email
+left join public.pending_invites pi on pi.email = u.email
 on conflict (id) do nothing;
 
 delete from public.pending_invites
@@ -112,7 +116,9 @@ create policy "admin manages profiles" on public.profiles
 -- 4. evaluations + child tables ---------------------------------------------
 -- No policies for `anon`: the public /eval/[id] link goes through server-side
 -- API routes using the service_role key, which bypasses RLS entirely.
--- Any authenticated user (admin or specialist) may read everything.
+-- Any authenticated user (admin, specialist, or employee) may read everything
+-- — employees need this to find evaluations where they're listed as an
+-- evaluator (matched by email at query time in /my-tasks).
 do $$
 declare
   t text;
@@ -127,38 +133,65 @@ begin
 
     execute format('drop policy if exists "admin and specialist can write" on public.%I', t);
     execute format(
-      'create policy "admin and specialist can write" on public.%I for insert to authenticated with check (true)',
+      'create policy "admin and specialist can write" on public.%I for insert to authenticated with check (public.is_admin() or exists (select 1 from public.profiles where id = auth.uid() and role = ''specialist''))',
       t
     );
 
     execute format('drop policy if exists "admin and specialist can update" on public.%I', t);
     execute format(
-      'create policy "admin and specialist can update" on public.%I for update to authenticated using (true) with check (true)',
+      'create policy "admin and specialist can update" on public.%I for update to authenticated using (public.is_admin() or exists (select 1 from public.profiles where id = auth.uid() and role = ''specialist'')) with check (public.is_admin() or exists (select 1 from public.profiles where id = auth.uid() and role = ''specialist''))',
       t
     );
   end loop;
 end $$;
 
--- Only admin can permanently delete.
+-- Only admin can permanently delete a whole evaluation request.
 drop policy if exists "admin can delete" on public.evaluations;
 create policy "admin can delete" on public.evaluations
   for delete to authenticated using (public.is_admin());
 
-drop policy if exists "admin can delete" on public.vendors;
-create policy "admin can delete" on public.vendors
-  for delete to authenticated using (public.is_admin());
+-- Child rows (vendors/evaluators/criteria/items) can be deleted by admin OR
+-- specialist, because editing a request replaces these rows (delete +
+-- re-insert) — this is NOT the same as permanently deleting a request.
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['vendors', 'evaluators', 'evf_criteria', 'evaluated_items']
+  loop
+    execute format('drop policy if exists "admin can delete" on public.%I', t);
+    execute format('drop policy if exists "admin and specialist can delete" on public.%I', t);
+    execute format(
+      'create policy "admin and specialist can delete" on public.%I for delete to authenticated using (public.is_admin() or exists (select 1 from public.profiles where id = auth.uid() and role = ''specialist''))',
+      t
+    );
+  end loop;
+end $$;
 
-drop policy if exists "admin can delete" on public.evaluators;
-create policy "admin can delete" on public.evaluators
-  for delete to authenticated using (public.is_admin());
+-- 6. employee directory ----------------------------------------------------
+-- Admin-maintained directory of organization staff (name/phone/department/
+-- email), used to search-select evaluators when creating an evaluation
+-- request instead of typing names manually. Read is open to any
+-- authenticated user (specialists need it for the picker); writes (manual
+-- edits or bulk import) are admin-only.
+create table if not exists public.employee_directory (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  phone text,
+  department text,
+  email text not null unique,
+  created_at timestamptz not null default now()
+);
 
-drop policy if exists "admin can delete" on public.evf_criteria;
-create policy "admin can delete" on public.evf_criteria
-  for delete to authenticated using (public.is_admin());
+alter table public.employee_directory enable row level security;
 
-drop policy if exists "admin can delete" on public.evaluated_items;
-create policy "admin can delete" on public.evaluated_items
-  for delete to authenticated using (public.is_admin());
+drop policy if exists "authenticated can read directory" on public.employee_directory;
+create policy "authenticated can read directory" on public.employee_directory
+  for select to authenticated using (true);
+
+drop policy if exists "admin manages directory" on public.employee_directory;
+create policy "admin manages directory" on public.employee_directory
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- 5. seed the first admin --------------------------------------------------
 -- update public.profiles set role = 'admin' where email = 'your-email@yourdomain.com';

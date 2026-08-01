@@ -116,6 +116,15 @@ export function useEvaluationForm(evaluations: any[], setEvaluations: any, saveE
     setForm({ ...form, evaluators: newEvals });
   };
 
+  // Fills name + email together from a directory pick — a single setForm call
+  // avoids the stale-closure issue of calling handleEvaluatorChange twice in
+  // the same event.
+  const handleEvaluatorSelect = (index: number, employee: { name: string; email: string }) => {
+    const newEvals = [...form.evaluators];
+    newEvals[index] = { ...newEvals[index], name: employee.name, email: employee.email };
+    setForm({ ...form, evaluators: newEvals });
+  };
+
   const handleSetPM = (index: number) => {
     const newEvals = form.evaluators.map((ev, i) => ({
       ...ev,
@@ -182,6 +191,14 @@ export function useEvaluationForm(evaluations: any[], setEvaluations: any, saveE
 
   const handleEdit = (ev: any) => {
     setEditingEval(ev);
+    // `ev.evaluators` comes straight from the DB row (snake_case `is_pm`),
+    // not through mapEvaluationRow's camelCase shape — normalize here so the
+    // PM radio's `checked` prop is always a defined boolean, never undefined.
+    const evaluators = ev.evaluators?.length
+      ? ev.evaluators.map((e: any) => ({ ...e, isPM: e.isPM ?? e.is_pm ?? false }))
+      : [{ name: ev.evaluatorName || "", email: ev.evaluatorEmail || "", isPM: true }];
+    if (!evaluators.some((e: any) => e.isPM)) evaluators[0].isPM = true;
+
     setForm({
       type: ev.type || "GENERAL",
       prNumber: ev.prNumber || "",
@@ -190,7 +207,7 @@ export function useEvaluationForm(evaluations: any[], setEvaluations: any, saveE
       vendors: ev.vendors?.length ? ev.vendors : [{ name: ev.vendorName || "", attachmentName: ev.attachmentName || "" }],
       evaluatedItems: ev.evaluatedItems?.length ? ev.evaluatedItems : [""],
       evfCriteria: ev.evfCriteria?.length ? ev.evfCriteria : [{ title: "", weight: "" }],
-      evaluators: ev.evaluators?.length ? ev.evaluators : [{ name: ev.evaluatorName || "", email: ev.evaluatorEmail || "", isPM: true }],
+      evaluators,
     });
     setStep(1);
     setIsModalOpen(true);
@@ -241,6 +258,7 @@ export function useEvaluationForm(evaluations: any[], setEvaluations: any, saveE
     handleSaveTemplate,
     handleLoadTemplate,
     handleEvaluatorChange,
+    handleEvaluatorSelect,
     handleSetPM,
     addEvaluator,
     removeEvaluator,

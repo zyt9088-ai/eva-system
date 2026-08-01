@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { AppHeader } from "@/components/layout/app-header";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const ORG_DOMAIN = "mngdp.com";
 const EMAIL_PATTERN = new RegExp(`^[^@\\s]+@${ORG_DOMAIN.replace(".", "\\.")}$`, "i");
@@ -27,6 +28,7 @@ export default function UsersPage() {
   const router = useRouter();
   const { profile, isAdmin, isLoading: profileLoading } = useCurrentProfile();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [inviteEmail, setInviteEmail] = useState("");
 
   useEffect(() => {
@@ -121,10 +123,13 @@ export default function UsersPage() {
     },
   });
 
-  const handleDeleteUser = (u: { id: string; email: string }) => {
-    if (window.confirm(`هل أنت متأكد من حذف حساب "${u.email}" نهائيًا؟`)) {
-      deleteUserMutation.mutate(u.id);
-    }
+  const handleDeleteUser = async (u: { id: string; email: string }) => {
+    const ok = await confirm({
+      title: "حذف المستخدم",
+      message: `هل أنت متأكد من حذف حساب "${u.email}" نهائيًا؟`,
+      confirmLabel: "حذف",
+    });
+    if (ok) deleteUserMutation.mutate(u.id);
   };
 
   const handleInviteSubmit = (e: React.FormEvent) => {

@@ -6,6 +6,7 @@ export const mapEvaluationRow = (ev: any) => ({
   type: ev.type,
   currentTotalWeight: ev.current_total_weight,
   status: ev.status,
+  createdBy: ev.created_by,
   createdAt: ev.created_at,
   date: ev.created_at?.split("T")[0],
   vendors: ev.vendors || [],

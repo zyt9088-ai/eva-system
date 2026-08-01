@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, AlertCircle, Users, CheckCircle2, History, Eye, Pencil, Link as LinkIcon, Trash2, Briefcase, Search } from "lucide-react";
+import { Clock, AlertCircle, Users, CheckCircle2, History, Eye, Pencil, Link as LinkIcon, Trash2, Briefcase, Search, Bell, User } from "lucide-react";
 import { getHighestScore } from "@/lib/evaluation-utils";
 
 interface EvaluationListProps {
@@ -11,7 +11,9 @@ interface EvaluationListProps {
   handleEdit: (ev: any) => void;
   handleDelete: (id: string) => void;
   copyEvalLink: (id: string) => void;
+  onRemind: (id: string) => void;
   isAdmin?: boolean;
+  creatorsById?: Record<string, string>;
 }
 
 export const EvaluationList = ({
@@ -23,7 +25,9 @@ export const EvaluationList = ({
   handleEdit,
   handleDelete,
   copyEvalLink,
+  onRemind,
   isAdmin,
+  creatorsById,
 }: EvaluationListProps) => {
   return (
     <AnimatePresence mode="wait">
@@ -101,6 +105,9 @@ export const EvaluationList = ({
                           <button onClick={() => copyEvalLink(ev.id)} className="text-gray-400 hover:text-blue-600 transition-colors" title="نسخ الرابط">
                             <LinkIcon size={16} />
                           </button>
+                          <button onClick={() => onRemind(ev.id)} className="text-gray-400 hover:text-amber-600 transition-colors" title="تذكير">
+                            <Bell size={16} />
+                          </button>
                           {isAdmin && (
                             <button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="حذف">
                               <Trash2 size={16} />
@@ -111,6 +118,11 @@ export const EvaluationList = ({
                       <h3 className="font-bold text-[#222222] text-lg leading-snug line-clamp-2 mb-3" title={ev.projectName}>
                         {ev.projectName}
                       </h3>
+                      {isAdmin && creatorsById?.[ev.createdBy] && (
+                        <div className="mb-3 text-[11px] font-bold text-gray-500 flex items-center gap-1">
+                          <User size={12} /> بواسطة: <span className="text-gray-700">{creatorsById[ev.createdBy]}</span>
+                        </div>
+                      )}
                       {ev.deadline && (
                         <div className="mb-3 text-[11px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded inline-flex items-center gap-1 w-fit border border-red-100">
                           <Clock size={12} /> ينتهي في: {ev.deadline.split('T')[0]}
@@ -168,6 +180,7 @@ export const EvaluationList = ({
                   <tr>
                     <th className="px-6 py-4">الطلب والمشروع</th>
                     <th className="px-6 py-4">المورد</th>
+                    {isAdmin && <th className="px-6 py-4">أنشأه</th>}
                     <th className="px-6 py-4 text-center">حالة التقييم</th>
                     <th className="px-6 py-4 text-center">الإجراءات</th>
                   </tr>
@@ -217,6 +230,11 @@ export const EvaluationList = ({
                           <td className="px-6 py-4">
                             <div className="font-bold text-gray-700 mb-1" title={displayVendorName}>{displayVendorName}</div>
                           </td>
+                          {isAdmin && (
+                            <td className="px-6 py-4">
+                              <span className="text-xs font-bold text-gray-600">{creatorsById?.[ev.createdBy] || "—"}</span>
+                            </td>
+                          )}
                           <td className="px-6 py-4 text-center">
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border transition-colors ${statusStyle}`}>{statusText}</span>
                             {ev.type === "EVF" && (ev.status === "APPROVED" || ev.status === "EVALUATED" || ev.status === "AWAITING_JUSTIFICATION") && (
@@ -234,6 +252,7 @@ export const EvaluationList = ({
                               )}
                               <button onClick={() => openHistoryModal(ev)} className="text-gray-400 hover:text-purple-600 transition-colors" title="سجل الطلب"><History size={18} /></button>
                               <button onClick={() => copyEvalLink(ev.id)} className="text-gray-400 hover:text-blue-600 transition-colors" title="نسخ الرابط"><LinkIcon size={18} /></button>
+                              <button onClick={() => onRemind(ev.id)} className="text-gray-400 hover:text-amber-600 transition-colors" title="تذكير"><Bell size={18} /></button>
                               <button onClick={() => openViewingModal(ev)} className="text-gray-400 hover:text-[#0D4435] transition-colors" title="إطلاع"><Eye size={18} /></button>
                               <button onClick={() => handleEdit(ev)} className="text-gray-400 hover:text-[#C5A059] transition-colors" title="تعديل"><Pencil size={18} /></button>
                               {isAdmin && (

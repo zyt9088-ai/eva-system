@@ -1,14 +1,41 @@
 "use client";
 import { VENDOR_PERFORMANCE_FLAT_CRITERIA } from '@/lib/evaluation-utils';
 
-import { useState, use } from "react";
+import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase/client";
+import { AppHeader } from "@/components/layout/app-header";
+import { AppFooter } from "@/components/layout/app-footer";
 import { EvaluatorSelector } from "@/components/features/evaluations/public/evaluator-selector";
 import { EvaluationForm } from "@/components/features/evaluations/public/evaluation-form";
-import { SuccessScreen, ApprovedScreen, PendingReviewScreen } from "@/components/features/evaluations/public/status-screens";
+import { SuccessScreen, ApprovedScreen, PendingReviewScreen, AlreadySubmittedScreen } from "@/components/features/evaluations/public/status-screens";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 
+// Logged-in employees get the app's header/footer + a way back to their
+// portal. Anonymous evaluators (external, via a shared link) keep the
+// original full-screen, chrome-free look.
+function Chrome({ authenticated, children }: { authenticated: boolean; children: React.ReactNode }) {
+  if (!authenticated) return <>{children}</>;
+  return (
+    <div className="min-h-screen flex flex-col" dir="rtl">
+      <AppHeader />
+      <div className="max-w-5xl mx-auto w-full px-4 pt-6">
+        <Link href="/my-tasks" className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-[#0D4435] transition-colors">
+          <ArrowRight size={16} /> رجوع لطلباتي
+        </Link>
+      </div>
+      <div className="flex-1">{children}</div>
+      <AppFooter />
+    </div>
+  );
+}
+
 export default function PublicEvalPage({ params }: { params: any }) {
+  const router = useRouter();
   const unwrappedParams = use(params);
   const evalId = (unwrappedParams as any).id;
 
@@ -33,10 +60,33 @@ export default function PublicEvalPage({ params }: { params: any }) {
     },
   });
 
+  const { data: loggedInEmail } = useQuery({
+    queryKey: ["current-user-email"],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      return user?.email ?? null;
+    },
+  });
+
   const [selectedEvaluatorIndex, setSelectedEvaluatorIndex] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [currentEvaluations, setCurrentEvaluations] = useState<any>({});
   const [isAgreed, setIsAgreed] = useState(false);
+
+  const isAuthenticated = !!loggedInEmail;
+
+  // Logged-in employees are matched to their evaluator slot automatically,
+  // skipping the "pick your name" screen used by the anonymous public link.
+  useEffect(() => {
+    if (selectedEvaluatorIndex !== null || !data || !loggedInEmail) return;
+    const matchedIndex = data.evaluators?.findIndex((e: any) => e.email === loggedInEmail);
+    if (matchedIndex !== undefined && matchedIndex !== -1) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedEvaluatorIndex(matchedIndex);
+    }
+  }, [data, loggedInEmail, selectedEvaluatorIndex]);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -44,25 +94,35 @@ export default function PublicEvalPage({ params }: { params: any }) {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-bold text-gray-500 text-sm">
-        الطلب غير موجود.
-      </div>
+      <Chrome authenticated={isAuthenticated}>
+        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-bold text-gray-500 text-sm">
+          الطلب غير موجود.
+        </div>
+      </Chrome>
     );
   }
 
-  if (submitted) return <SuccessScreen />;
-  if (data.status === "APPROVED") return <ApprovedScreen />;
-  if (data.status === "EVALUATED") return <PendingReviewScreen />;
+  const matchedIndex = loggedInEmail
+    ? data.evaluators?.findIndex((e: any) => e.email === loggedInEmail)
+    : -1;
+  const alreadySubmitted = matchedIndex !== undefined && matchedIndex !== -1 && data.itemEvaluations?.[matchedIndex] !== undefined;
+
+  if (submitted) return <Chrome authenticated={isAuthenticated}><SuccessScreen /></Chrome>;
+  if (data.status === "APPROVED") return <Chrome authenticated={isAuthenticated}><ApprovedScreen /></Chrome>;
+  if (data.status === "EVALUATED") return <Chrome authenticated={isAuthenticated}><PendingReviewScreen /></Chrome>;
+  if (alreadySubmitted) return <Chrome authenticated={isAuthenticated}><AlreadySubmittedScreen /></Chrome>;
 
   const evaluatorsList = data.evaluators?.length ? data.evaluators : [{ name: data.evaluatorName || "مقيم 1", email: "", isPM: true }];
 
   if (selectedEvaluatorIndex === null) {
     return (
-      <EvaluatorSelector
-        data={data}
-        evaluatorsList={evaluatorsList}
-        setSelectedEvaluatorIndex={setSelectedEvaluatorIndex}
-      />
+      <Chrome authenticated={isAuthenticated}>
+        <EvaluatorSelector
+          data={data}
+          evaluatorsList={evaluatorsList}
+          setSelectedEvaluatorIndex={setSelectedEvaluatorIndex}
+        />
+      </Chrome>
     );
   }
 
@@ -116,7 +176,12 @@ export default function PublicEvalPage({ params }: { params: any }) {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     await submitMutation.mutateAsync({ evaluatorIndex: selectedEvaluatorIndex, evaluations: currentEvaluations });
-    setSubmitted(true);
+    if (isAuthenticated) {
+      toast.success("تم إرسال تقييمك بنجاح، بانتظار الاعتماد");
+      router.push("/my-tasks");
+    } else {
+      setSubmitted(true);
+    }
   };
 
   const checkSubmitDisabled = () => {
@@ -147,19 +212,21 @@ export default function PublicEvalPage({ params }: { params: any }) {
   };
 
   return (
-    <EvaluationForm
-      data={data}
-      vendorsList={vendorsList}
-      currentEvaluatorName={currentEvaluator.name}
-      currentEvaluations={currentEvaluations}
-      handleItemEval={handleItemEval}
-      handleItemReason={handleItemReason}
-      handleEvfScore={handleEvfScore}
-      isAgreed={isAgreed}
-      setIsAgreed={setIsAgreed}
-      handleSubmit={handleSubmit}
-      checkSubmitDisabled={checkSubmitDisabled}
-      setCurrentEvaluations={setCurrentEvaluations}
-    />
+    <Chrome authenticated={isAuthenticated}>
+      <EvaluationForm
+        data={data}
+        vendorsList={vendorsList}
+        currentEvaluatorName={currentEvaluator.name}
+        currentEvaluations={currentEvaluations}
+        handleItemEval={handleItemEval}
+        handleItemReason={handleItemReason}
+        handleEvfScore={handleEvfScore}
+        isAgreed={isAgreed}
+        setIsAgreed={setIsAgreed}
+        handleSubmit={handleSubmit}
+        checkSubmitDisabled={checkSubmitDisabled}
+        setCurrentEvaluations={setCurrentEvaluations}
+      />
+    </Chrome>
   );
 }

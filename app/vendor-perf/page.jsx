@@ -20,8 +20,11 @@ import { LoadingScreen } from "@/components/ui/loading-screen";
 
 export default function VendorPerfDashboard() {
   const router = useRouter();
-  const { evaluations, isLoaded, saveEvaluation, deleteEvaluation, updateStatus } = useEvaluations();
+  const { evaluations, creators, isLoaded, saveEvaluation, deleteEvaluation, updateStatus, remindEvaluator } = useEvaluations();
   const { isAdmin } = useCurrentProfile();
+
+  const creatorsById = Object.fromEntries(creators.map((c) => [c.id, c.full_name || c.email]));
+  const creatorOptions = creators.map((c) => ({ label: c.full_name || c.email, value: c.id }));
 
   const evalFormState = useEvaluationForm(evaluations, null, saveEvaluation);
   const {
@@ -29,7 +32,7 @@ export default function VendorPerfDashboard() {
     evfTemplates, setEvfTemplates, newTemplateName, setNewTemplateName, selectedTemplateId, setSelectedTemplateId,
     handleVendorChange, addVendor, removeVendor, handleItemChange, addItem, removeItem,
     handleEvfChange, addEvfItem, removeEvfItem, currentTotalWeight, handleSaveTemplate, handleLoadTemplate,
-    handleEvaluatorChange, handleSetPM, addEvaluator, removeEvaluator, handleCreateRequest, handleFinalSave,
+    handleEvaluatorChange, handleEvaluatorSelect, handleSetPM, addEvaluator, removeEvaluator, handleCreateRequest, handleFinalSave,
     handleEdit, openCreateModal
   } = evalFormState;
 
@@ -43,6 +46,7 @@ export default function VendorPerfDashboard() {
   const [viewMode, setViewMode] = useState("grid");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [filterCreator, setFilterCreator] = useState("ALL");
   const [sortBy, setSortBy] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
@@ -60,7 +64,7 @@ export default function VendorPerfDashboard() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterStatus, sortBy, activeTab]);
+  }, [searchTerm, filterStatus, filterCreator, sortBy, activeTab]);
 
   const copyEvalLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/eval/${id}`);
@@ -121,7 +125,11 @@ export default function VendorPerfDashboard() {
       return true;
     });
   }
-  
+
+  if (isAdmin && filterCreator !== "ALL") {
+    filteredAndSortedData = filteredAndSortedData.filter((ev) => ev.createdBy === filterCreator);
+  }
+
   filteredAndSortedData.sort((a, b) => {
     if (sortBy === "newest") return new Date(b.createdAt || b.date || 0).getTime() - new Date(a.createdAt || a.date || 0).getTime();
     if (sortBy === "score_high") return parseFloat(getHighestScore(b)) - parseFloat(getHighestScore(a));
@@ -181,6 +189,9 @@ export default function VendorPerfDashboard() {
             setSearchTerm={setSearchTerm}
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
+            creatorOptions={isAdmin ? creatorOptions : undefined}
+            filterCreator={filterCreator}
+            setFilterCreator={setFilterCreator}
             sortBy={sortBy}
             setSortBy={setSortBy}
             filterOptions={[
@@ -204,8 +215,10 @@ export default function VendorPerfDashboard() {
           handleDelete={deleteEvaluation}
           updateStatus={updateStatus}
           copyEvalLink={copyEvalLink}
+          onRemind={remindEvaluator}
           openHistoryModal={openHistoryModal}
           isAdmin={isAdmin}
+          creatorsById={creatorsById}
         />
 
         {totalPages > 1 && (
@@ -260,6 +273,7 @@ export default function VendorPerfDashboard() {
           handleSaveTemplate={handleSaveTemplate}
           handleLoadTemplate={handleLoadTemplate}
           handleEvaluatorChange={handleEvaluatorChange}
+          handleEvaluatorSelect={handleEvaluatorSelect}
           handleSetPM={handleSetPM}
           addEvaluator={addEvaluator}
           removeEvaluator={removeEvaluator}

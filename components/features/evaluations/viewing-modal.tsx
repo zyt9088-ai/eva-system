@@ -15,6 +15,51 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 
+// Criteria titles are free-text and can run long, so the default single-line
+// centered tick overlaps its neighbors on a small radar. This wraps each
+// label into up to 2 short lines and anchors it away from the chart center,
+// with the full title still available via a native <title> tooltip on hover.
+const wrapRadarLabel = (text: string, maxCharsPerLine = 12, maxLines = 2) => {
+  const words = String(text).trim().split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length > maxCharsPerLine && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+    if (lines.length === maxLines) break;
+  }
+  if (lines.length < maxLines && current) lines.push(current);
+  const isTruncated = words.join(" ").length > lines.join(" ").length;
+  if (isTruncated && lines.length) {
+    lines[lines.length - 1] = lines[lines.length - 1].slice(0, maxCharsPerLine - 1).trimEnd() + "…";
+  }
+  return lines;
+};
+
+const RadarAxisTick = ({ x, y, cx, cy, payload }: any) => {
+  const lines = wrapRadarLabel(payload.value);
+  const dx = x - cx;
+  const anchor = Math.abs(dx) < 6 ? "middle" : dx > 0 ? "start" : "end";
+  const startDy = lines.length > 1 ? -6 : 0;
+  return (
+    <g>
+      <title>{payload.value}</title>
+      <text x={x} y={y} textAnchor={anchor} fontSize={10} fontWeight={700} fill="#4b5563">
+        {lines.map((line, i) => (
+          <tspan key={i} x={x} dy={i === 0 ? startDy : 12}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+};
+
 export const ViewingModal = ({ viewingEval, onClose }: any) => {
   const [activeVendorTab, setActiveVendorTab] = useState(0);
 
@@ -410,7 +455,7 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                     />{" "}
                                     التحليل البصري
                                   </h4>
-                                  <div className="w-full h-[200px] flex items-center justify-center">
+                                  <div className="w-full h-70 flex items-center justify-center">
                                     <ResponsiveContainer
                                       width="100%"
                                       height="100%"
@@ -418,26 +463,29 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                       <RadarChart
                                         cx="50%"
                                         cy="50%"
-                                        outerRadius="70%"
+                                        outerRadius="62%"
                                         data={getRadarData(
                                           viewingEval,
                                           activeVendorTab,
                                         )}
                                       >
+                                        <defs>
+                                          <linearGradient id="radarFill" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#0D4435" stopOpacity={0.35} />
+                                            <stop offset="100%" stopColor="#0D4435" stopOpacity={0.05} />
+                                          </linearGradient>
+                                        </defs>
                                         <PolarGrid stroke="#e5e7eb" />
                                         <PolarAngleAxis
                                           dataKey="subject"
-                                          tick={{
-                                            fill: "#4b5563",
-                                            fontSize: 10,
-                                            fontWeight: "bold",
-                                          }}
+                                          tick={<RadarAxisTick />}
                                         />
                                         <PolarRadiusAxis
                                           angle={30}
                                           domain={[0, 10]}
+                                          axisLine={false}
                                           tick={{
-                                            fill: "#9ca3af",
+                                            fill: "#c1c8d1",
                                             fontSize: 9,
                                           }}
                                         />
@@ -445,15 +493,16 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                           name="متوسط التقييم"
                                           dataKey="A"
                                           stroke="#0D4435"
-                                          fill="#0D4435"
-                                          fillOpacity={0.2}
+                                          strokeWidth={2}
+                                          fill="url(#radarFill)"
+                                          dot={{ r: 3, fill: "#0D4435", strokeWidth: 0 }}
                                         />
                                         <RechartsTooltip
                                           contentStyle={{
-                                            borderRadius: "6px",
+                                            borderRadius: "10px",
                                             border: "1px solid #e5e7eb",
                                             boxShadow:
-                                              "0 2px 4px -1px rgba(0, 0, 0, 0.1)",
+                                              "0 4px 12px -2px rgba(0, 0, 0, 0.12)",
                                             fontFamily: "Cairo",
                                             fontSize: "11px",
                                             textAlign: "right",

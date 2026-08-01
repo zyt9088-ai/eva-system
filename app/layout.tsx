@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import ReactQueryProvider from "@/components/providers/react-query-provider";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -30,7 +31,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ReactQueryProvider>
-          {children}
+          <ConfirmProvider>{children}</ConfirmProvider>
         </ReactQueryProvider>
         <Toaster position="top-center" richColors />
       </body>

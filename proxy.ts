@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/tech-eval", "/vendor-perf", "/print"];
+const STAFF_PREFIXES = ["/dashboard", "/tech-eval", "/vendor-perf", "/print"];
+const EMPLOYEE_PREFIXES = ["/my-tasks"];
+const PROTECTED_PREFIXES = [...STAFF_PREFIXES, ...EMPLOYEE_PREFIXES];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -29,9 +31,9 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isProtected = PROTECTED_PREFIXES.some((prefix) =>
-    request.nextUrl.pathname.startsWith(prefix)
-  );
+  const pathname = request.nextUrl.pathname;
+  const isStaffRoute = STAFF_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   if (isProtected && !user) {
     return NextResponse.redirect(new URL("/", request.url));
@@ -40,12 +42,16 @@ export async function proxy(request: NextRequest) {
   if (isProtected && user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id")
+      .select("role")
       .eq("id", user.id)
       .maybeSingle();
 
     if (!profile) {
       return NextResponse.redirect(new URL("/no-access", request.url));
+    }
+
+    if (isStaffRoute && profile.role === "employee") {
+      return NextResponse.redirect(new URL("/my-tasks", request.url));
     }
   }
 

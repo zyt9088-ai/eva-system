@@ -1,7 +1,9 @@
 "use client";
-import { X, Calculator, ClipboardList, Briefcase, Plus, Save, Trash2, ShieldAlert, ArrowRight, Paperclip, Bookmark, AlertCircle } from "lucide-react";
+import { X, Calculator, ClipboardList, Briefcase, Plus, Save, Trash2, ShieldAlert, ArrowRight, Paperclip, Bookmark, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
+import { supabase } from "@/lib/supabase/client";
 
 export const CreateEvalModal = (props: any) => {
   const {
@@ -31,12 +33,35 @@ export const CreateEvalModal = (props: any) => {
   handleSaveTemplate,
   handleLoadTemplate,
   handleEvaluatorChange,
+  handleEvaluatorSelect,
   handleSetPM,
   addEvaluator,
   removeEvaluator,
   handleCreateRequest,
   handleFinalSave,
 } = props;
+
+  // Directory of org staff, used to search-pick an evaluator's name/email
+  // instead of typing both by hand. Only fetched once the committee step is
+  // reachable; react-query dedupes this against app/dashboard/employees's
+  // own query if that page happens to be cached.
+  const { data: employeeDirectory = [] } = useQuery({
+    queryKey: ["employee-directory"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_directory")
+        .select("id, name, phone, department, email")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: isModalOpen && step === 2,
+  });
+
+  const directoryOptions = employeeDirectory.map((emp: any) => ({
+    value: emp.id,
+    label: emp.department ? `${emp.name} — ${emp.department}` : emp.name,
+  }));
   const inputClasses = "w-full h-11 bg-white border border-gray-300 rounded-lg px-4 text-sm font-semibold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all placeholder:text-gray-400 shadow-sm";
   const labelClasses = "block text-sm font-bold text-gray-700 mb-1.5 text-right";
   const primaryBtn = "inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D4435] text-white hover:bg-[#0a3529] h-11 px-6 text-sm font-bold shadow-sm transition-all active:scale-95";
@@ -442,17 +467,6 @@ export const CreateEvalModal = (props: any) => {
                           exit={{ opacity: 0, x: -20 }}
                           className="space-y-6"
                         >
-                          <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3">
-                            <AlertCircle
-                              size={18}
-                              className="text-blue-500 mt-0.5 shrink-0"
-                            />
-                            <p className="text-[11px] font-bold text-blue-800 leading-relaxed text-right">
-                              سيتم إصدار رابط آمن وموحد. قم بإضافة أعضاء اللجنة
-                              بالأسفل مع تحديد "مدير المشروع" المسؤول عن إضافة
-                              أسباب الاستبعاد.
-                            </p>
-                          </div>
                           <div>
                             <label className="block text-sm font-black text-[#0D4435] mb-4 text-right">
                               أعضاء لجنة التقييم الفني{" "}
@@ -467,7 +481,28 @@ export const CreateEvalModal = (props: any) => {
                                   <div className="absolute top-0 right-0 w-8 h-8 bg-gray-200 text-gray-600 rounded-bl-lg rounded-tr-lg flex items-center justify-center text-xs font-bold">
                                     {index + 1}
                                   </div>
-                                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                  <div className="flex-1 pt-2">
+                                    {directoryOptions.length > 0 && (
+                                      <div className="mb-4">
+                                        <label className="text-[11px] font-bold text-gray-500 mb-1.5 block text-right">
+                                          اختيار سريع من دليل الموظفين (اختياري)
+                                        </label>
+                                        <ModernDropdown
+                                          value=""
+                                          options={directoryOptions}
+                                          onChange={(val) => {
+                                            const emp = employeeDirectory.find((e: any) => e.id === val);
+                                            if (emp) handleEvaluatorSelect(index, { name: emp.name, email: emp.email });
+                                          }}
+                                          placeholder="ابحث بالاسم..."
+                                          icon={Search}
+                                          searchable
+                                          searchPlaceholder="ابحث بالاسم..."
+                                          className="w-full"
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                       <label className="text-[11px] font-bold text-gray-500 mb-1.5 block text-right">
                                         الاسم الكامل{" "}
@@ -517,6 +552,7 @@ export const CreateEvalModal = (props: any) => {
                                         dir="ltr"
                                         placeholder="email@ladun.com"
                                       />
+                                    </div>
                                     </div>
                                   </div>
                                   {form.evaluators.length > 1 && (

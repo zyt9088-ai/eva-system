@@ -1,6 +1,6 @@
 import { VENDOR_PERFORMANCE_CATEGORIES } from '@/lib/evaluation-utils';
 import React from 'react';
-import { Calculator, ClipboardList, Briefcase, Paperclip, CalendarClock } from "lucide-react";
+import { Calculator, ClipboardList, Briefcase, Paperclip, CalendarClock, Users } from "lucide-react";
 import { motion } from "framer-motion";
 
 const inputClasses = "w-full h-11 bg-white border border-gray-300 rounded-lg px-3 text-sm font-semibold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all placeholder:text-gray-400 shadow-sm";
@@ -40,8 +40,7 @@ export function EvaluationForm({
           __html: `
             @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
             * { font-family: 'Cairo', sans-serif !important; }
-            header, footer, nav { display: none !important; } 
-            body, main { padding-top: 0 !important; margin-top: 0 !important; background-color: #F8FAFC;} 
+            body, main { padding-top: 0 !important; margin-top: 0 !important; background-color: #F8FAFC;}
             input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; } 
             input[type="number"] { -moz-appearance: textfield; }
           `,
@@ -142,7 +141,13 @@ export function EvaluationForm({
           </div>
           {data.deadline && (
             <div className="bg-red-50 text-red-600 border border-red-100 px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 shrink-0">
-              <CalendarClock size={18} /> ينتهي التقييم في: {data.deadline}
+              <CalendarClock size={18} /> ينتهي التقييم في:{" "}
+              <span dir="ltr">
+                {(() => {
+                  const [y, m, d] = data.deadline.split("T")[0].split("-");
+                  return `${d}-${m}-${y}`;
+                })()}
+              </span>
             </div>
           )}
         </div>
@@ -159,6 +164,34 @@ export function EvaluationForm({
             </div>
           </div>
 
+          {data.evaluators?.length > 1 && (
+            <div className="mb-6 pb-6 border-b border-gray-100">
+              <h4 className="font-bold text-[#0D4435] text-sm mb-3 flex items-center gap-2">
+                <Users size={18} className="text-[#C5A059]" /> أعضاء لجنة التقييم معك
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {data.evaluators.map((ev: any, idx: number) => {
+                  const isCurrentUser = ev.name === currentEvaluatorName;
+                  return (
+                    <span
+                      key={idx}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                        isCurrentUser
+                          ? "bg-[#0D4435]/10 text-[#0D4435] border-[#0D4435]/20"
+                          : "bg-gray-50 text-gray-600 border-gray-200"
+                      }`}
+                    >
+                      {ev.name}
+                      {ev.isPM && (
+                        <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">مدير المشروع</span>
+                      )}
+                      {isCurrentUser && <span className="text-[9px] text-[#0D4435]/70">(أنت)</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div>
             <h4 className="font-bold text-[#0D4435] text-sm mb-4 flex items-center gap-2">
               <Briefcase size={18} className="text-[#C5A059]" /> الموردين المتنافسين

@@ -16,6 +16,8 @@ interface ModernDropdownProps {
   placeholder: string;
   icon?: any;
   className?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 const GAP = 8;
@@ -29,9 +31,12 @@ export const ModernDropdown = ({
   placeholder,
   icon: Icon,
   className = "w-full lg:w-48",
+  searchable = false,
+  searchPlaceholder = "بحث...",
 }: ModernDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [coords, setCoords] = useState<{
     left: number;
     width: number;
@@ -88,10 +93,14 @@ export const ModernDropdown = ({
         });
       }
     }
+    setSearchTerm("");
     setIsOpen((prev) => !prev);
   };
 
   const selectedLabel = options.find((o) => o.value === value)?.label || placeholder;
+  const filteredOptions = searchable && searchTerm.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+    : options;
 
   return (
     <div className={`relative text-right ${className}`}>
@@ -134,8 +143,26 @@ export const ModernDropdown = ({
                 }}
                 className="bg-white border border-[#C5A059] rounded-lg shadow-xl overflow-hidden"
               >
+                {searchable && (
+                  <div className="p-2 border-b border-gray-100 bg-gray-50/50">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder={searchPlaceholder}
+                      dir="rtl"
+                      className="w-full h-9 px-3 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-md outline-none focus:border-[#C5A059] transition-colors"
+                    />
+                  </div>
+                )}
                 <div className="overflow-y-auto custom-scrollbar" style={{ maxHeight: coords.maxHeight }}>
-                  {options.map((opt) => (
+                  {filteredOptions.length === 0 && (
+                    <div className="px-3 py-2.5 text-sm text-gray-400 font-bold text-center">
+                      لا توجد نتائج
+                    </div>
+                  )}
+                  {filteredOptions.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"

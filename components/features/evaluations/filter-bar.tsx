@@ -1,4 +1,4 @@
-import { Search, Filter, List, LayoutGrid } from "lucide-react";
+import { Search, Filter, List, LayoutGrid, UserCircle } from "lucide-react";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
 
 interface FilterBarProps {
@@ -10,6 +10,9 @@ interface FilterBarProps {
   setSortBy: (val: string) => void;
   viewMode: string;
   setViewMode: (val: string) => void;
+  creatorOptions?: { label: string; value: string }[];
+  filterCreator?: string;
+  setFilterCreator?: (val: string) => void;
 }
 
 export const FilterBar = ({
@@ -21,6 +24,9 @@ export const FilterBar = ({
   setSortBy,
   viewMode,
   setViewMode,
+  creatorOptions,
+  filterCreator,
+  setFilterCreator,
 }: FilterBarProps) => {
   const filterOptions = [
     { label: "جميع الحالات", value: "ALL" },
@@ -47,6 +53,17 @@ export const FilterBar = ({
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
       </div>
       <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+        {creatorOptions && creatorOptions.length > 0 && setFilterCreator && (
+          <ModernDropdown
+            value={filterCreator || "ALL"}
+            options={[{ label: "الكل (جميع المُنشئين)", value: "ALL" }, ...creatorOptions]}
+            onChange={setFilterCreator}
+            placeholder="تصفية حسب المنشئ"
+            icon={UserCircle}
+            searchable
+            className="w-48"
+          />
+        )}
         <ModernDropdown
           value={filterStatus}
           options={filterOptions}
