@@ -9,7 +9,13 @@ export const mapEvaluationRow = (ev: any) => ({
   createdBy: ev.created_by,
   createdAt: ev.created_at,
   date: ev.created_at?.split("T")[0],
-  vendors: ev.vendors || [],
+  // attachment_name/attachment_path stay snake_case in the DB row; the UI
+  // reads the camelCase aliases, so they must be added explicitly here.
+  vendors: (ev.vendors || []).map((v: any) => ({
+    ...v,
+    attachmentName: v.attachment_name,
+    attachmentPath: v.attachment_path,
+  })),
   evaluators: ev.evaluators || [],
   evfCriteria: ev.evf_criteria || [],
   evaluatedItems: ev.evaluated_items?.map((i: any) => i.item_name) || [],

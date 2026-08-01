@@ -30,7 +30,7 @@ export default function TechnicalEvalDashboard() {
   const {
     form, setForm, step, setStep, editingEval, setEditingEval, isModalOpen, setIsModalOpen,
     evfTemplates, setEvfTemplates, newTemplateName, setNewTemplateName, selectedTemplateId, setSelectedTemplateId,
-    handleVendorChange, addVendor, removeVendor, handleItemChange, addItem, removeItem,
+    handleVendorChange, handleVendorFile, addVendor, removeVendor, handleItemChange, addItem, removeItem,
     handleEvfChange, addEvfItem, removeEvfItem, currentTotalWeight, handleSaveTemplate, handleLoadTemplate,
     handleEvaluatorChange, handleEvaluatorSelect, handleSetPM, addEvaluator, removeEvaluator, handleCreateRequest, handleFinalSave,
     handleEdit, openCreateModal
@@ -261,6 +261,7 @@ export default function TechnicalEvalDashboard() {
           selectedTemplateId={selectedTemplateId}
           setSelectedTemplateId={setSelectedTemplateId}
           handleVendorChange={handleVendorChange}
+          handleVendorFile={handleVendorFile}
           addVendor={addVendor}
           removeVendor={removeVendor}
           handleItemChange={handleItemChange}

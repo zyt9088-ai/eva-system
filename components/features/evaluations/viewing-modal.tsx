@@ -2,9 +2,20 @@
 import { useState } from "react";
 import { X, CheckCircle2, Calculator, ClipboardList, Briefcase, Users, AlertCircle, Paperclip, Tag, Printer, Clock, Radar as RadarIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { formatDateTime } from "@/lib/formatters";
 import { getEvaluatorsList, calculateEvfAveragesForVendor, getFinalStatusForVendor, getSafeEvalStatus, getSafeReason, getSafeScore, getRadarData } from "@/lib/evaluation-utils";
+import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
+
+const openVendorAttachment = async (path: string) => {
+  const { data, error } = await supabase.storage.from("vendor-attachments").createSignedUrl(path, 60);
+  if (error || !data?.signedUrl) {
+    toast.error("تعذّر فتح المرفق — تأكد من تسجيل دخولك بحساب مصرّح له");
+    return;
+  }
+  window.open(data.signedUrl, "_blank");
+};
 import {
   Radar,
   RadarChart,
@@ -211,10 +222,21 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                   {currentVendor.name}
                                 </p>
                                 {currentVendor.attachmentName && (
-                                  <div className="mt-1 text-[10px] text-blue-600 flex items-center gap-1 font-bold">
-                                    <Paperclip size={10} />{" "}
-                                    {currentVendor.attachmentName}
-                                  </div>
+                                  currentVendor.attachmentPath ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openVendorAttachment(currentVendor.attachmentPath)}
+                                      className="mt-1 text-[10px] text-blue-600 hover:text-blue-800 flex items-center gap-1 font-bold transition-colors"
+                                    >
+                                      <Paperclip size={10} />{" "}
+                                      {currentVendor.attachmentName}
+                                    </button>
+                                  ) : (
+                                    <div className="mt-1 text-[10px] text-gray-400 flex items-center gap-1 font-bold">
+                                      <Paperclip size={10} />{" "}
+                                      {currentVendor.attachmentName}
+                                    </div>
+                                  )
                                 )}
                               </div>
                             </div>

@@ -33,6 +33,43 @@ const notifyEvaluators = (evaluationId: string) => {
   });
 };
 
+const VENDOR_ATTACHMENTS_BUCKET = "vendor-attachments";
+
+// Inserted one vendor at a time (not bulk) so each row's id is known
+// immediately for the attachment upload. A vendor keeps its existing
+// attachmentPath untouched when no new file is picked (the path lives
+// independently of the vendor row's id, so it survives edit's
+// delete+reinsert cycle); a newly picked File always wins.
+async function insertVendorsWithAttachments(evalId: string, vendors: any[]) {
+  for (const v of vendors || []) {
+    const { data: vendorRow, error: vendorError } = await supabase
+      .from("vendors")
+      .insert({
+        evaluation_id: evalId,
+        name: v.name,
+        attachment_name: v.attachmentName || null,
+        attachment_path: v.attachmentFile ? null : v.attachmentPath || null,
+      })
+      .select()
+      .single();
+    if (vendorError) throw vendorError;
+
+    if (v.attachmentFile) {
+      const path = `${evalId}/${crypto.randomUUID()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from(VENDOR_ATTACHMENTS_BUCKET)
+        .upload(path, v.attachmentFile, { contentType: "application/pdf" });
+      if (uploadError) throw uploadError;
+
+      const { error: pathError } = await supabase
+        .from("vendors")
+        .update({ attachment_path: path })
+        .eq("id", vendorRow.id);
+      if (pathError) throw pathError;
+    }
+  }
+}
+
 export function useEvaluations() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -117,16 +154,8 @@ export function useEvaluations() {
 
       const evalId = evData.id;
 
-      // 2. Insert Vendors
-      if (newEval.vendors?.length > 0) {
-        await supabase.from("vendors").insert(
-          newEval.vendors.map((v) => ({
-            evaluation_id: evalId,
-            name: v.name,
-            attachment_name: v.attachmentName,
-          }))
-        );
-      }
+      // 2. Insert Vendors (+ upload any attached PDFs)
+      await insertVendorsWithAttachments(evalId, newEval.vendors);
 
       // 3. Insert Evaluators
       if (newEval.evaluators?.length > 0) {
@@ -194,15 +223,7 @@ export function useEvaluations() {
       // Vendors/evaluators/criteria/items are replaced wholesale to reflect
       // the edited lists (same shape the create flow inserts them in).
       await supabase.from("vendors").delete().eq("evaluation_id", evalId);
-      if (updatedEval.vendors?.length > 0) {
-        await supabase.from("vendors").insert(
-          updatedEval.vendors.map((v) => ({
-            evaluation_id: evalId,
-            name: v.name,
-            attachment_name: v.attachmentName,
-          }))
-        );
-      }
+      await insertVendorsWithAttachments(evalId, updatedEval.vendors);
 
       await supabase.from("evaluators").delete().eq("evaluation_id", evalId);
       if (updatedEval.evaluators?.length > 0) {

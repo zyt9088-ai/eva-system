@@ -26,6 +26,19 @@ export function useEvaluationForm(evaluations: any[], setEvaluations: any, saveE
     setForm({ ...form, vendors: newVendors });
   };
 
+  // Keeps the raw File in memory (never sent as JSON) alongside the display
+  // name — the actual upload happens on submit, once the evaluation id
+  // exists (see hooks/useEvaluations.ts's insertVendorsWithAttachments).
+  const handleVendorFile = (index: number, file: File | null) => {
+    const newVendors = [...form.vendors] as any[];
+    newVendors[index] = {
+      ...newVendors[index],
+      attachmentFile: file,
+      attachmentName: file?.name || newVendors[index].attachmentName,
+    };
+    setForm({ ...form, vendors: newVendors });
+  };
+
   const addVendor = () =>
     setForm({
       ...form,
@@ -246,6 +259,7 @@ export function useEvaluationForm(evaluations: any[], setEvaluations: any, saveE
     selectedTemplateId,
     setSelectedTemplateId,
     handleVendorChange,
+    handleVendorFile,
     addVendor,
     removeVendor,
     handleItemChange,

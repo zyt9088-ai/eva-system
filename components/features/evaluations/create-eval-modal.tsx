@@ -2,8 +2,11 @@
 import { X, Calculator, ClipboardList, Briefcase, Plus, Save, Trash2, ShieldAlert, ArrowRight, Paperclip, Bookmark, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
 import { supabase } from "@/lib/supabase/client";
+
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 export const CreateEvalModal = (props: any) => {
   const {
@@ -21,6 +24,7 @@ export const CreateEvalModal = (props: any) => {
   selectedTemplateId,
   setSelectedTemplateId,
   handleVendorChange,
+  handleVendorFile,
   addVendor,
   removeVendor,
   handleItemChange,
@@ -223,16 +227,23 @@ export const CreateEvalModal = (props: any) => {
                                       <div className="relative">
                                         <input
                                           type="file"
+                                          accept="application/pdf"
                                           className="hidden"
                                           id={`file-upload-${vIdx}`}
-                                          onChange={(e) =>
-                                            handleVendorChange(
-                                              vIdx,
-                                              "attachmentName",
-                                              // @ts-ignore
-                                              e.target.files[0]?.name || "",
-                                            )
-                                          }
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0] || null;
+                                            e.target.value = "";
+                                            if (!file) return;
+                                            if (file.type !== "application/pdf") {
+                                              toast.error("المرفق يجب أن يكون ملف PDF فقط");
+                                              return;
+                                            }
+                                            if (file.size > MAX_ATTACHMENT_BYTES) {
+                                              toast.error("حجم المرفق يجب ألا يتجاوز 10 ميجابايت");
+                                              return;
+                                            }
+                                            handleVendorFile(vIdx, file);
+                                          }}
                                         />
                                         <label
                                           htmlFor={`file-upload-${vIdx}`}

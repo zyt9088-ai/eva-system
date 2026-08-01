@@ -2,6 +2,17 @@ import { VENDOR_PERFORMANCE_CATEGORIES } from '@/lib/evaluation-utils';
 import React from 'react';
 import { Calculator, ClipboardList, Briefcase, Paperclip, CalendarClock, Users } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase/client";
+
+const openVendorAttachment = async (path: string) => {
+  const { data, error } = await supabase.storage.from("vendor-attachments").createSignedUrl(path, 60);
+  if (error || !data?.signedUrl) {
+    toast.error("تعذّر فتح المرفق — تأكد من تسجيل دخولك بحساب مصرّح له");
+    return;
+  }
+  window.open(data.signedUrl, "_blank");
+};
 
 const inputClasses = "w-full h-11 bg-white border border-gray-300 rounded-lg px-3 text-sm font-semibold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all placeholder:text-gray-400 shadow-sm";
 const primaryBtn = "inline-flex items-center justify-center gap-2 rounded-lg bg-[#0D4435] text-white hover:bg-[#0a3529] h-11 px-8 text-sm font-bold shadow-sm transition-all active:scale-95 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed";
@@ -203,9 +214,19 @@ export function EvaluationForm({
                     <p className="font-bold text-sm text-gray-900 truncate mb-1" title={v.name}>{v.name}</p>
                   </div>
                   {v.attachmentName && (
-                    <div className="mt-4 pt-3 border-t border-gray-200 text-xs font-bold text-blue-600 flex items-center gap-1.5 cursor-pointer hover:text-blue-800 transition-colors">
-                      <Paperclip size={14} /> <span className="truncate">{v.attachmentName}</span>
-                    </div>
+                    v.attachmentPath ? (
+                      <button
+                        type="button"
+                        onClick={() => openVendorAttachment(v.attachmentPath)}
+                        className="mt-4 pt-3 border-t border-gray-200 text-xs font-bold text-blue-600 flex items-center gap-1.5 cursor-pointer hover:text-blue-800 transition-colors text-right"
+                      >
+                        <Paperclip size={14} /> <span className="truncate">{v.attachmentName}</span>
+                      </button>
+                    ) : (
+                      <div className="mt-4 pt-3 border-t border-gray-200 text-xs font-bold text-gray-400 flex items-center gap-1.5">
+                        <Paperclip size={14} /> <span className="truncate">{v.attachmentName}</span>
+                      </div>
+                    )
                   )}
                 </div>
               ))}

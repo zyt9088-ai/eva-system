@@ -116,20 +116,23 @@ create policy "admin manages profiles" on public.profiles
 -- 4. evaluations + child tables ---------------------------------------------
 -- No policies for `anon`: the public /eval/[id] link goes through server-side
 -- API routes using the service_role key, which bypasses RLS entirely.
--- Any authenticated user (admin, specialist, or employee) may read everything
--- — employees need this to find evaluations where they're listed as an
--- evaluator (matched by email at query time in /my-tasks).
+-- Child tables stay readable by any authenticated user — employees need
+-- this to find evaluations where they're listed as an evaluator (matched by
+-- email at query time in /my-tasks). `evaluations` itself is isolated by
+-- creator below instead of the same blanket policy.
 do $$
 declare
   t text;
 begin
   foreach t in array array['evaluations', 'vendors', 'evaluators', 'evf_criteria', 'evaluated_items']
   loop
-    execute format('drop policy if exists "authenticated can read" on public.%I', t);
-    execute format(
-      'create policy "authenticated can read" on public.%I for select to authenticated using (true)',
-      t
-    );
+    if t <> 'evaluations' then
+      execute format('drop policy if exists "authenticated can read" on public.%I', t);
+      execute format(
+        'create policy "authenticated can read" on public.%I for select to authenticated using (true)',
+        t
+      );
+    end if;
 
     execute format('drop policy if exists "admin and specialist can write" on public.%I', t);
     execute format(
@@ -144,6 +147,29 @@ begin
     );
   end loop;
 end $$;
+
+-- Requests are isolated by owner: admin sees everything, specialist sees
+-- only what they created. Anyone (any role) whose email matches an
+-- evaluator on the request can still read it — needed for /my-tasks, and
+-- for an admin/specialist who's themselves listed as a committee member.
+alter table public.evaluations add column if not exists created_by uuid references auth.users (id) on delete set null;
+
+drop policy if exists "authenticated can read" on public.evaluations;
+drop policy if exists "role scoped read" on public.evaluations;
+create policy "role scoped read" on public.evaluations
+  for select to authenticated using (
+    public.is_admin()
+    or (
+      created_by = auth.uid()
+      and exists (select 1 from public.profiles where id = auth.uid() and role = 'specialist')
+    )
+    or exists (
+      select 1 from public.evaluators e
+      join public.profiles p on p.id = auth.uid()
+      where e.evaluation_id = evaluations.id
+        and e.email = p.email
+    )
+  );
 
 -- Only admin can permanently delete a whole evaluation request.
 drop policy if exists "admin can delete" on public.evaluations;
@@ -192,6 +218,56 @@ create policy "authenticated can read directory" on public.employee_directory
 drop policy if exists "admin manages directory" on public.employee_directory;
 create policy "admin manages directory" on public.employee_directory
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- 7. vendor attachment storage ----------------------------------------------
+-- Vendor proposal PDFs uploaded during create/edit. attachment_path is the
+-- storage object key (independent of the vendor row's id, so it survives
+-- edit's delete+reinsert cycle for vendors).
+alter table public.vendors add column if not exists attachment_path text;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('vendor-attachments', 'vendor-attachments', false, 10485760, array['application/pdf'])
+on conflict (id) do update set
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types,
+  public = excluded.public;
+
+-- storage.objects already has RLS enabled by default in every Supabase
+-- project, and the SQL editor's role doesn't own that table — don't try to
+-- toggle it here (fails with "must be owner of table objects").
+
+-- admin/specialist upload; readable by admin/specialist or anyone whose
+-- email matches an evaluator on the evaluation the file belongs to (path is
+-- "{evaluation_id}/{uuid}.pdf", so the first path segment is the evaluation id).
+drop policy if exists "staff can upload vendor attachments" on storage.objects;
+create policy "staff can upload vendor attachments" on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'vendor-attachments'
+    and (public.is_admin() or exists (select 1 from public.profiles where id = auth.uid() and role = 'specialist'))
+  );
+
+drop policy if exists "staff can delete vendor attachments" on storage.objects;
+create policy "staff can delete vendor attachments" on storage.objects
+  for delete to authenticated using (
+    bucket_id = 'vendor-attachments'
+    and (public.is_admin() or exists (select 1 from public.profiles where id = auth.uid() and role = 'specialist'))
+  );
+
+drop policy if exists "org can read vendor attachments" on storage.objects;
+create policy "org can read vendor attachments" on storage.objects
+  for select to authenticated using (
+    bucket_id = 'vendor-attachments'
+    and (
+      public.is_admin()
+      or exists (select 1 from public.profiles where id = auth.uid() and role = 'specialist')
+      or exists (
+        select 1 from public.evaluators e
+        join public.profiles p on p.id = auth.uid()
+        where e.evaluation_id::text = (storage.foldername(name))[1]
+          and e.email = p.email
+      )
+    )
+  );
 
 -- 5. seed the first admin --------------------------------------------------
 -- update public.profiles set role = 'admin' where email = 'your-email@yourdomain.com';
