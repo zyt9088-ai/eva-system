@@ -2,7 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const STAFF_PREFIXES = ["/dashboard", "/tech-eval", "/vendor-perf", "/print"];
-const EMPLOYEE_PREFIXES = ["/my-tasks"];
+// Any authenticated role (not just staff) can hit these — /eval/[id] is the
+// evaluation form itself, gated here so no anonymous "pick your name" access
+// is possible; the page's own logic further restricts it to a matched email.
+const EMPLOYEE_PREFIXES = ["/my-tasks", "/eval"];
 const PROTECTED_PREFIXES = [...STAFF_PREFIXES, ...EMPLOYEE_PREFIXES];
 
 export async function proxy(request: NextRequest) {
@@ -60,6 +63,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|logo.png|api/public-eval|eval|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|logo.png|api/public-eval|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

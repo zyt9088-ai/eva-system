@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { mapEvaluationRow } from "@/lib/evaluation-utils";
 
 export async function GET(
@@ -7,8 +7,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const supabase = await createClient();
 
-  const { data, error } = await supabaseAdmin
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // No service_role here on purpose: RLS on `evaluations` already scopes
+  // this to admin, the specialist who created it, or anyone whose email
+  // matches an evaluator on it — an unauthenticated or unrelated caller
+  // just gets no row back, same as a genuinely missing id.
+  const { data, error } = await supabase
     .from("evaluations")
     .select(
       `
@@ -27,5 +36,5 @@ export async function GET(
     return NextResponse.json({ error: "Evaluation not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ data: mapEvaluationRow(data) });
+  return NextResponse.json({ data: { ...mapEvaluationRow(data), myEmail: user?.email ?? null } });
 }

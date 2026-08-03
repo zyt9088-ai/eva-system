@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(
@@ -13,14 +14,32 @@ export async function POST(
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const { data: evaluation, error: fetchError } = await supabaseAdmin
+  // Identity check against the caller's real session — this is what
+  // actually stops someone from submitting an evaluation under a different
+  // committee member's name; supabaseAdmin below only does the privileged
+  // write once this has passed.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const { data: evaluation, error: fetchError } = await supabase
     .from("evaluations")
-    .select("status, item_evaluations, evaluators (id)")
+    .select("status, item_evaluations, evaluators (email)")
     .eq("id", id)
     .maybeSingle();
 
   if (fetchError || !evaluation) {
     return NextResponse.json({ error: "Evaluation not found" }, { status: 404 });
+  }
+
+  const matchedEvaluator = (evaluation.evaluators as any[])?.[evaluatorIndex];
+  if (!matchedEvaluator || matchedEvaluator.email !== user.email) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   if (evaluation.status === "APPROVED") {

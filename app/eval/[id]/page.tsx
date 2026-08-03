@@ -1,25 +1,23 @@
 "use client";
 import { VENDOR_PERFORMANCE_FLAT_CRITERIA } from '@/lib/evaluation-utils';
 
-import { useState, useEffect, use } from "react";
+import { use } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ShieldAlert } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase/client";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppFooter } from "@/components/layout/app-footer";
-import { EvaluatorSelector } from "@/components/features/evaluations/public/evaluator-selector";
 import { EvaluationForm } from "@/components/features/evaluations/public/evaluation-form";
-import { SuccessScreen, ApprovedScreen, PendingReviewScreen, AlreadySubmittedScreen } from "@/components/features/evaluations/public/status-screens";
+import { ApprovedScreen, PendingReviewScreen, AlreadySubmittedScreen } from "@/components/features/evaluations/public/status-screens";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 
-// Logged-in employees get the app's header/footer + a way back to their
-// portal. Anonymous evaluators (external, via a shared link) keep the
-// original full-screen, chrome-free look.
-function Chrome({ authenticated, children }: { authenticated: boolean; children: React.ReactNode }) {
-  if (!authenticated) return <>{children}</>;
+// This route is gated by proxy.ts — only an authenticated session ever
+// reaches this component, so the app's normal header/footer/back-link
+// always apply (no more anonymous, chrome-free public link).
+function Chrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col" dir="rtl">
       <AppHeader />
@@ -30,6 +28,18 @@ function Chrome({ authenticated, children }: { authenticated: boolean; children:
       </div>
       <div className="flex-1">{children}</div>
       <AppFooter />
+    </div>
+  );
+}
+
+function NotCommitteeMemberScreen() {
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 text-center max-w-sm w-full">
+        <ShieldAlert size={48} className="mx-auto text-orange-500 mb-5" />
+        <h1 className="text-xl font-black text-[#0D4435] mb-2">لست ضمن أعضاء لجنة هذا الطلب</h1>
+        <p className="text-sm font-bold text-gray-500">هذا الطلب غير مخصص لك للتقييم.</p>
+      </div>
     </div>
   );
 }
@@ -60,33 +70,8 @@ export default function PublicEvalPage({ params }: { params: any }) {
     },
   });
 
-  const { data: loggedInEmail } = useQuery({
-    queryKey: ["current-user-email"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      return user?.email ?? null;
-    },
-  });
-
-  const [selectedEvaluatorIndex, setSelectedEvaluatorIndex] = useState<number | null>(null);
-  const [submitted, setSubmitted] = useState(false);
   const [currentEvaluations, setCurrentEvaluations] = useState<any>({});
   const [isAgreed, setIsAgreed] = useState(false);
-
-  const isAuthenticated = !!loggedInEmail;
-
-  // Logged-in employees are matched to their evaluator slot automatically,
-  // skipping the "pick your name" screen used by the anonymous public link.
-  useEffect(() => {
-    if (selectedEvaluatorIndex !== null || !data || !loggedInEmail) return;
-    const matchedIndex = data.evaluators?.findIndex((e: any) => e.email === loggedInEmail);
-    if (matchedIndex !== undefined && matchedIndex !== -1) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedEvaluatorIndex(matchedIndex);
-    }
-  }, [data, loggedInEmail, selectedEvaluatorIndex]);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -94,7 +79,7 @@ export default function PublicEvalPage({ params }: { params: any }) {
 
   if (!data) {
     return (
-      <Chrome authenticated={isAuthenticated}>
+      <Chrome>
         <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-bold text-gray-500 text-sm">
           الطلب غير موجود.
         </div>
@@ -102,32 +87,51 @@ export default function PublicEvalPage({ params }: { params: any }) {
     );
   }
 
-  const matchedIndex = loggedInEmail
-    ? data.evaluators?.findIndex((e: any) => e.email === loggedInEmail)
+  const matchedIndex = data.myEmail
+    ? data.evaluators?.findIndex((e: any) => e.email === data.myEmail)
     : -1;
-  const alreadySubmitted = matchedIndex !== undefined && matchedIndex !== -1 && data.itemEvaluations?.[matchedIndex] !== undefined;
 
-  if (submitted) return <Chrome authenticated={isAuthenticated}><SuccessScreen /></Chrome>;
-  if (data.status === "APPROVED") return <Chrome authenticated={isAuthenticated}><ApprovedScreen /></Chrome>;
-  if (data.status === "EVALUATED") return <Chrome authenticated={isAuthenticated}><PendingReviewScreen /></Chrome>;
-  if (alreadySubmitted) return <Chrome authenticated={isAuthenticated}><AlreadySubmittedScreen /></Chrome>;
+  const mySubmission = matchedIndex !== -1 ? data.itemEvaluations?.[matchedIndex] : undefined;
 
-  const evaluatorsList = data.evaluators?.length ? data.evaluators : [{ name: data.evaluatorName || "مقيم 1", email: "", isPM: true }];
+  const evaluatorsList = data.evaluators;
+  const vendorsList = data.vendors?.length ? data.vendors : [{ name: data.vendorName, attachmentName: data.attachmentName }];
 
-  if (selectedEvaluatorIndex === null) {
-    return (
-      <Chrome authenticated={isAuthenticated}>
-        <EvaluatorSelector
-          data={data}
-          evaluatorsList={evaluatorsList}
-          setSelectedEvaluatorIndex={setSelectedEvaluatorIndex}
-        />
-      </Chrome>
-    );
+  // After approval, a committee member who already submitted sees their own
+  // evaluation read-only instead of the generic ApprovedScreen; anyone else
+  // (no submission, or not on the committee) still gets the generic screen.
+  if (data.status === "APPROVED") {
+    if (mySubmission) {
+      return (
+        <Chrome>
+          <EvaluationForm
+            data={data}
+            vendorsList={vendorsList}
+            currentEvaluatorName={evaluatorsList[matchedIndex].name}
+            currentEvaluations={mySubmission.evals || {}}
+            handleItemEval={() => {}}
+            handleItemReason={() => {}}
+            handleEvfScore={() => {}}
+            isAgreed={true}
+            setIsAgreed={() => {}}
+            handleSubmit={(e: any) => e.preventDefault()}
+            checkSubmitDisabled={() => true}
+            setCurrentEvaluations={() => {}}
+            readOnly
+          />
+        </Chrome>
+      );
+    }
+    return <Chrome><ApprovedScreen /></Chrome>;
+  }
+  if (data.status === "EVALUATED") return <Chrome><PendingReviewScreen /></Chrome>;
+
+  if (matchedIndex === undefined || matchedIndex === -1) {
+    return <Chrome><NotCommitteeMemberScreen /></Chrome>;
   }
 
-  const currentEvaluator = evaluatorsList[selectedEvaluatorIndex];
-  const vendorsList = data.vendors?.length ? data.vendors : [{ name: data.vendorName, attachmentName: data.attachmentName }];
+  if (mySubmission) return <Chrome><AlreadySubmittedScreen /></Chrome>;
+
+  const currentEvaluator = evaluatorsList[matchedIndex];
 
   const handleItemEval = (vendorIdx: number, critIdx: number, status: string) => {
     setCurrentEvaluations((prev: any) => ({
@@ -175,13 +179,9 @@ export default function PublicEvalPage({ params }: { params: any }) {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    await submitMutation.mutateAsync({ evaluatorIndex: selectedEvaluatorIndex, evaluations: currentEvaluations });
-    if (isAuthenticated) {
-      toast.success("تم إرسال تقييمك بنجاح، بانتظار الاعتماد");
-      router.push("/my-tasks");
-    } else {
-      setSubmitted(true);
-    }
+    await submitMutation.mutateAsync({ evaluatorIndex: matchedIndex, evaluations: currentEvaluations });
+    toast.success("تم إرسال تقييمك بنجاح، بانتظار الاعتماد");
+    router.push("/my-tasks");
   };
 
   const checkSubmitDisabled = () => {
@@ -212,7 +212,7 @@ export default function PublicEvalPage({ params }: { params: any }) {
   };
 
   return (
-    <Chrome authenticated={isAuthenticated}>
+    <Chrome>
       <EvaluationForm
         data={data}
         vendorsList={vendorsList}

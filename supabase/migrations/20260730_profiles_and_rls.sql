@@ -263,7 +263,10 @@ create policy "org can read vendor attachments" on storage.objects
       or exists (
         select 1 from public.evaluators e
         join public.profiles p on p.id = auth.uid()
-        where e.evaluation_id::text = (storage.foldername(name))[1]
+        -- must be storage.objects.name (i.e. "objects.name") — evaluators also
+        -- has a `name` column (the evaluator's own name), which shadows the
+        -- intended file-path column if left unqualified.
+        where e.evaluation_id::text = (storage.foldername(objects.name))[1]
           and e.email = p.email
       )
     )

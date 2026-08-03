@@ -1,6 +1,6 @@
 import { VENDOR_PERFORMANCE_CATEGORIES } from '@/lib/evaluation-utils';
 import React from 'react';
-import { Calculator, ClipboardList, Briefcase, Paperclip, CalendarClock, Users } from "lucide-react";
+import { Calculator, ClipboardList, Briefcase, Paperclip, CalendarClock, Users, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 const openVendorAttachment = async (path: string) => {
   const { data, error } = await supabase.storage.from("vendor-attachments").createSignedUrl(path, 60);
   if (error || !data?.signedUrl) {
+    console.error("createSignedUrl failed", error);
     toast.error("تعذّر فتح المرفق — تأكد من تسجيل دخولك بحساب مصرّح له");
     return;
   }
@@ -29,7 +30,8 @@ export function EvaluationForm({
   setIsAgreed,
   handleSubmit,
   checkSubmitDisabled,
-  setCurrentEvaluations
+  setCurrentEvaluations,
+  readOnly = false,
 }: {
   data: any;
   vendorsList: any[];
@@ -43,6 +45,7 @@ export function EvaluationForm({
   handleSubmit: (e: any) => void;
   checkSubmitDisabled: () => boolean;
   setCurrentEvaluations: any;
+  readOnly?: boolean;
 }) {
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-10 px-4 md:px-6 container mx-auto font-sans" dir="rtl">
@@ -105,7 +108,8 @@ export function EvaluationForm({
                                           max="100"
                                           step="1"
                                           required
-                                          className="w-20 h-10 mx-auto bg-gray-50 border border-gray-300 rounded-lg text-center font-black text-lg focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] outline-none"
+                                          disabled={readOnly}
+                                          className="w-20 h-10 mx-auto bg-gray-50 border border-gray-300 rounded-lg text-center font-black text-lg focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] outline-none disabled:opacity-100 disabled:bg-gray-100"
                                           value={scoreVal ?? ""}
                                           onChange={(e) => handleEvfScore(vIdx, currentIndex, e.target.value)}
                                           placeholder="0"
@@ -115,7 +119,8 @@ export function EvaluationForm({
                                             <input
                                               type="text"
                                               required
-                                              className="w-full h-8 bg-white border border-red-200 rounded-lg px-2 text-[11px] font-semibold text-gray-900 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-gray-400 shadow-sm"
+                                              disabled={readOnly}
+                                              className="w-full h-8 bg-white border border-red-200 rounded-lg px-2 text-[11px] font-semibold text-gray-900 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-gray-400 shadow-sm disabled:opacity-100 disabled:bg-gray-100"
                                               value={currentEvaluations[vIdx]?.[currentIndex]?.reason || ""}
                                               onChange={(e) => {
                                                 setCurrentEvaluations((prev: any) => ({
@@ -274,7 +279,8 @@ export function EvaluationForm({
                                   max="10"
                                   step="1"
                                   required
-                                  className="w-20 h-10 mx-auto bg-gray-50 border border-gray-300 rounded-lg text-center font-black text-lg focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] outline-none"
+                                  disabled={readOnly}
+                                  className="w-20 h-10 mx-auto bg-gray-50 border border-gray-300 rounded-lg text-center font-black text-lg focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] outline-none disabled:opacity-100 disabled:bg-gray-100"
                                   value={scoreVal ?? ""}
                                   onChange={(e) => handleEvfScore(vIdx, cIdx, e.target.value)}
                                   placeholder="0"
@@ -284,7 +290,8 @@ export function EvaluationForm({
                                     <input
                                       type="text"
                                       required
-                                      className="w-full h-8 bg-white border border-red-200 rounded-lg px-2 text-[11px] font-semibold text-gray-900 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-gray-400 shadow-sm"
+                                      disabled={readOnly}
+                                      className="w-full h-8 bg-white border border-red-200 rounded-lg px-2 text-[11px] font-semibold text-gray-900 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-gray-400 shadow-sm disabled:opacity-100 disabled:bg-gray-100"
                                       value={currentEvaluations[vIdx]?.[cIdx]?.reason || ""}
                                       onChange={(e) => {
                                         setCurrentEvaluations((prev: any) => ({
@@ -318,15 +325,17 @@ export function EvaluationForm({
                                 <div className="flex justify-center gap-2 mb-2">
                                   <button
                                     type="button"
+                                    disabled={readOnly}
                                     onClick={() => handleItemEval(vIdx, cIdx, "YES")}
-                                    className={`flex-1 py-2 rounded-lg text-[11px] font-black border transition-all ${status === "YES" ? "bg-green-50 border-green-600 text-green-700 shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
+                                    className={`flex-1 py-2 rounded-lg text-[11px] font-black border transition-all disabled:opacity-100 ${status === "YES" ? "bg-green-50 border-green-600 text-green-700 shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
                                   >
                                     يطابق
                                   </button>
                                   <button
                                     type="button"
+                                    disabled={readOnly}
                                     onClick={() => handleItemEval(vIdx, cIdx, "NO")}
-                                    className={`flex-1 py-2 rounded-lg text-[11px] font-black border transition-all ${status === "NO" ? "bg-red-50 border-red-600 text-red-700 shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
+                                    className={`flex-1 py-2 rounded-lg text-[11px] font-black border transition-all disabled:opacity-100 ${status === "NO" ? "bg-red-50 border-red-600 text-red-700 shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
                                   >
                                     لا يطابق
                                   </button>
@@ -336,7 +345,8 @@ export function EvaluationForm({
                                     <input
                                       type="text"
                                       required
-                                      className={`${inputClasses} h-8 text-[11px] border-red-200 focus:border-red-500`}
+                                      disabled={readOnly}
+                                      className={`${inputClasses} h-8 text-[11px] border-red-200 focus:border-red-500 disabled:opacity-100 disabled:bg-gray-100`}
                                       value={currentEvaluations[vIdx]?.[cIdx]?.reason || ""}
                                       onChange={(e) => handleItemReason(vIdx, cIdx, e.target.value)}
                                       placeholder="يرجى كتابة السبب..."
@@ -352,28 +362,37 @@ export function EvaluationForm({
               </table>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-gray-100">
-              <label className="flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all bg-gray-50 hover:border-[#0D4435]/50">
-                <div className="pt-0.5">
-                  <input
-                    type="checkbox"
-                    checked={isAgreed}
-                    onChange={(e) => setIsAgreed(e.target.checked)}
-                    className="w-5 h-5 text-[#0D4435] rounded border-gray-300 focus:ring-[#0D4435] cursor-pointer"
-                  />
-                </div>
-                <p className="text-sm font-bold text-gray-700 leading-relaxed">
-                  أقر أنا "<span className="text-[#0D4435] font-black">{currentEvaluatorName}</span>" بأني من قام بتقييم هذا الطلب بدون ضغوط خارجية وقد اطلعت على الطلب والبنود كاملة ومسؤول عن أي مسائلات في حال التلاعب.
-                </p>
-              </label>
-            </div>
+            {!readOnly && (
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <label className="flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all bg-gray-50 hover:border-[#0D4435]/50">
+                  <div className="pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isAgreed}
+                      onChange={(e) => setIsAgreed(e.target.checked)}
+                      className="w-5 h-5 text-[#0D4435] rounded border-gray-300 focus:ring-[#0D4435] cursor-pointer"
+                    />
+                  </div>
+                  <p className="text-sm font-bold text-gray-700 leading-relaxed">
+                    أقر أنا "<span className="text-[#0D4435] font-black">{currentEvaluatorName}</span>" بأني من قام بتقييم هذا الطلب بدون ضغوط خارجية وقد اطلعت على الطلب والبنود كاملة ومسؤول عن أي مسائلات في حال التلاعب.
+                  </p>
+                </label>
+              </div>
+            )}
           </div>
 
-          <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">
-            <button type="submit" disabled={checkSubmitDisabled()} className={primaryBtn}>
-              حفظ واعتماد تقييم الموردين
-            </button>
-          </div>
+          {readOnly ? (
+            <div className="p-6 border-t border-gray-100 bg-green-50 flex items-center gap-2 text-green-700">
+              <CheckCircle2 size={18} />
+              <span className="text-sm font-black">تم اعتماد هذا الطلب — البيانات المعروضة هي تقييمك النهائي المُرسَل.</span>
+            </div>
+          ) : (
+            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button type="submit" disabled={checkSubmitDisabled()} className={primaryBtn}>
+                حفظ واعتماد تقييم الموردين
+              </button>
+            </div>
+          )}
         </form>
       </motion.div>
     </div>
