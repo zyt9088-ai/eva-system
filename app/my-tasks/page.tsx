@@ -1,14 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, CheckCircle2, ArrowLeft, Inbox } from "lucide-react";
+import { ClipboardList, CheckCircle2, ArrowLeft, Inbox, Plus, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { mapEvaluationRow } from "@/lib/evaluation-utils";
 import { AppHeader } from "@/components/layout/app-header";
 import { LoadingScreen } from "@/components/ui/loading-screen";
+import { CreateDirectPurchaseModal } from "@/components/features/direct-purchase/create-direct-purchase-modal";
 
 export default function MyTasksPage() {
+  const [isDirectPurchaseModalOpen, setIsDirectPurchaseModalOpen] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ["my-tasks"],
     queryFn: async () => {
@@ -74,11 +78,28 @@ export default function MyTasksPage() {
       />
       <AppHeader />
       <main className="flex-1 p-6 lg:p-10 max-w-4xl mx-auto w-full">
-        <div className="mb-8">
-          <h1 className="text-2xl font-black text-[#0D4435]">طلباتي</h1>
-          <p className="text-sm font-bold text-gray-500 mt-1">
-            الطلبات المطلوب منك تقييمها، والطلبات اللي سبق قيّمتها
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-[#0D4435]">طلباتي</h1>
+            <p className="text-sm font-bold text-gray-500 mt-1">
+              الطلبات المطلوب منك تقييمها، ونماذج مبررات الشراء المباشر
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsDirectPurchaseModalOpen(true)}
+              className="h-11 px-5 bg-[#0D4435] hover:bg-[#0a3529] text-white rounded-xl font-black text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95 shrink-0"
+            >
+              <Plus size={16} /> إنشاء مبرر شراء مباشر
+            </button>
+            <Link
+              href="/direct-purchase"
+              className="h-11 px-4 bg-white border border-gray-200 hover:border-[#0D4435] text-gray-700 hover:text-[#0D4435] rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all"
+            >
+              <FileText size={16} /> متابعة الشراء المباشر
+            </Link>
+          </div>
         </div>
 
         <section className="mb-10">
@@ -138,6 +159,11 @@ export default function MyTasksPage() {
           )}
         </section>
       </main>
+
+      <CreateDirectPurchaseModal
+        isOpen={isDirectPurchaseModalOpen}
+        onClose={() => setIsDirectPurchaseModalOpen(false)}
+      />
     </div>
   );
 }

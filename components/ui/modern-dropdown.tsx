@@ -3,10 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown, Search } from "lucide-react";
 
-interface Option {
+export interface Option {
   value: string;
   label: string;
+  subLabel?: string;
+  badge?: string;
 }
 
 interface ModernDropdownProps {
@@ -20,9 +23,10 @@ interface ModernDropdownProps {
   searchPlaceholder?: string;
 }
 
-const GAP = 8;
-const MAX_PANEL_HEIGHT = 240;
-const VIEWPORT_MARGIN = 12;
+const GAP = 6;
+const MAX_PANEL_HEIGHT = 380;
+const MIN_PANEL_HEIGHT = 160;
+const VIEWPORT_MARGIN = 16;
 
 export const ModernDropdown = ({
   value,
@@ -32,24 +36,66 @@ export const ModernDropdown = ({
   icon: Icon,
   className = "w-full lg:w-48",
   searchable = false,
-  searchPlaceholder = "بحث...",
+  searchPlaceholder = "بحث بالاسم أو الإدارة أو البريد...",
 }: ModernDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [coords, setCoords] = useState<{
-    left: number;
+    left?: number;
+    right?: number;
     width: number;
     top?: number;
     bottom?: number;
     maxHeight: number;
-  }>({ left: 0, width: 0, top: 0, maxHeight: MAX_PANEL_HEIGHT });
+  }>({ width: 0, maxHeight: MAX_PANEL_HEIGHT });
+  
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Portals need `document.body`, which doesn't exist during SSR — flip this after mount.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
+
+  const updatePosition = () => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - GAP - VIEWPORT_MARGIN;
+    const spaceAbove = rect.top - GAP - VIEWPORT_MARGIN;
+
+    // Prefer opening downwards unless there is significantly more space above
+    const openUpwards = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const availableSpace = openUpwards ? spaceAbove : spaceBelow;
+    const calculatedMaxHeight = Math.max(MIN_PANEL_HEIGHT, Math.min(MAX_PANEL_HEIGHT, availableSpace - 10));
+
+    // Ensure dropdown is at least as wide as button or minimum 260px for readability
+    const panelWidth = Math.max(rect.width, 240);
+
+    // Calculate RTL right alignment
+    let rightPos = window.innerWidth - rect.right;
+    if (rightPos + panelWidth > window.innerWidth - VIEWPORT_MARGIN) {
+      rightPos = window.innerWidth - panelWidth - VIEWPORT_MARGIN;
+    }
+    if (rightPos < VIEWPORT_MARGIN) {
+      rightPos = VIEWPORT_MARGIN;
+    }
+
+    if (openUpwards) {
+      setCoords({
+        right: rightPos,
+        width: panelWidth,
+        bottom: window.innerHeight - rect.top + GAP,
+        top: undefined,
+        maxHeight: calculatedMaxHeight,
+      });
+    } else {
+      setCoords({
+        right: rightPos,
+        width: panelWidth,
+        top: rect.bottom + GAP,
+        bottom: undefined,
+        maxHeight: calculatedMaxHeight,
+      });
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -58,66 +104,91 @@ export const ModernDropdown = ({
       const clickedPanel = panelRef.current?.contains(target);
       if (!clickedButton && !clickedPanel) setIsOpen(false);
     };
-    const handleScrollOrResize = () => setIsOpen(false);
+
+    const handleScroll = (event: Event) => {
+      // If the scroll happened inside the dropdown panel, do NOT close!
+      if (panelRef.current && panelRef.current.contains(event.target as Node)) {
+        return;
+      }
+      setIsOpen(false);
+    };
+
+    const handleResize = () => {
+      if (isOpen) updatePosition();
+    };
 
     document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("scroll", handleScrollOrResize, true);
-    window.addEventListener("resize", handleScrollOrResize);
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleResize);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScrollOrResize, true);
-      window.removeEventListener("resize", handleScrollOrResize);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
     };
-  }, []);
+  }, [isOpen]);
 
   const toggleOpen = () => {
-    if (!isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom - GAP - VIEWPORT_MARGIN;
-      const spaceAbove = rect.top - GAP - VIEWPORT_MARGIN;
-
-      if (spaceBelow < 120 && spaceAbove > spaceBelow) {
-        // not enough room below: flip the panel above the trigger instead
-        setCoords({
-          left: rect.left,
-          width: rect.width,
-          bottom: window.innerHeight - rect.top + GAP,
-          maxHeight: Math.max(120, Math.min(MAX_PANEL_HEIGHT, spaceAbove)),
-        });
-      } else {
-        setCoords({
-          left: rect.left,
-          width: rect.width,
-          top: rect.bottom + GAP,
-          maxHeight: Math.max(120, Math.min(MAX_PANEL_HEIGHT, spaceBelow)),
-        });
-      }
+    if (!isOpen) {
+      updatePosition();
+      setSearchTerm("");
     }
-    setSearchTerm("");
     setIsOpen((prev) => !prev);
   };
 
-  const selectedLabel = options.find((o) => o.value === value)?.label || placeholder;
+  const selectedOption = options.find((o) => o.value === value);
   const filteredOptions = searchable && searchTerm.trim()
-    ? options.filter((o) => o.label.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+    ? options.filter((o) =>
+        o.label.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
+        (o.subLabel && o.subLabel.toLowerCase().includes(searchTerm.trim().toLowerCase())) ||
+        (o.badge && o.badge.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+      )
     : options;
 
   return (
-    <div className={`relative text-right ${className}`}>
+    <div className={`relative text-right min-w-0 max-w-full ${className}`}>
       <button
         ref={buttonRef}
         type="button"
         onClick={toggleOpen}
-        className={`w-full flex items-center justify-between px-3 py-2 min-h-[44px] bg-white text-sm font-bold text-gray-700 border rounded-md transition-all ${
-          isOpen ? "border-[#C5A059] ring-1 ring-[#C5A059]/30 shadow-sm" : "border-gray-300 hover:border-[#C5A059]"
+        className={`w-full min-w-0 max-w-full flex items-center justify-between px-3.5 py-2 min-h-[44px] bg-white text-sm font-bold text-gray-700 border rounded-xl transition-all cursor-pointer overflow-hidden ${
+          isOpen ? "border-[#0D4435] ring-1 ring-[#0D4435]/30 shadow-xs" : "border-gray-200 hover:border-[#0D4435]"
         }`}
       >
-        <span className="truncate">{selectedLabel}</span>
-        {Icon && (
+        <div className="flex-1 min-w-0 max-w-full text-right overflow-hidden">
+          {selectedOption ? (
+            <div
+              className="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap py-0.5 max-w-full"
+              title={`${selectedOption.label} ${selectedOption.badge ? `(${selectedOption.badge})` : ""} ${selectedOption.subLabel || ""}`}
+            >
+              <span className="font-black text-gray-900 shrink-0">{selectedOption.label}</span>
+              {selectedOption.badge && (
+                <span className="px-2 py-0.5 bg-[#0D4435]/10 text-[#0D4435] rounded-md text-[11px] font-black shrink-0">
+                  {selectedOption.badge}
+                </span>
+              )}
+              {selectedOption.subLabel && (
+                <span className="text-[11px] text-gray-400 font-mono shrink-0" dir="ltr">
+                  {selectedOption.subLabel}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-gray-400 font-bold truncate block">{placeholder}</span>
+          )}
+        </div>
+
+        {Icon ? (
           <Icon
+            size={16}
+            className={`text-gray-400 transition-transform duration-300 shrink-0 mr-2 ${
+              isOpen ? "rotate-180 text-[#0D4435]" : ""
+            }`}
+          />
+        ) : (
+          <ChevronDown
             size={14}
-            className={`text-gray-400 transition-transform duration-300 shrink-0 ${
-              isOpen ? "rotate-180 text-[#C5A059]" : ""
+            className={`text-gray-400 transition-transform duration-300 shrink-0 mr-2 ${
+              isOpen ? "rotate-180 text-[#0D4435]" : ""
             }`}
           />
         )}
@@ -129,37 +200,42 @@ export const ModernDropdown = ({
             {isOpen && (
               <motion.div
                 ref={panelRef}
-                initial={{ opacity: 0, y: coords.bottom !== undefined ? 6 : -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: coords.bottom !== undefined ? 6 : -6 }}
+                initial={{ opacity: 0, y: coords.bottom !== undefined ? 6 : -6, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: coords.bottom !== undefined ? 6 : -6, scale: 0.98 }}
                 transition={{ duration: 0.15 }}
                 style={{
                   position: "fixed",
                   top: coords.top,
                   bottom: coords.bottom,
-                  left: coords.left,
+                  right: coords.right,
                   width: coords.width,
-                  zIndex: 9999,
+                  maxHeight: coords.maxHeight,
+                  zIndex: 999999,
                 }}
-                className="bg-white border border-[#C5A059] rounded-lg shadow-xl overflow-hidden"
+                className="bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+                dir="rtl"
               >
                 {searchable && (
-                  <div className="p-2 border-b border-gray-100 bg-gray-50/50">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder={searchPlaceholder}
-                      dir="rtl"
-                      className="w-full h-9 px-3 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-md outline-none focus:border-[#C5A059] transition-colors"
-                    />
+                  <div className="p-2.5 border-b border-gray-100 bg-gray-50/90 shrink-0">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder={searchPlaceholder}
+                        className="w-full h-9 pr-8 pl-3 text-xs font-bold text-gray-800 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#0D4435] transition-colors"
+                      />
+                      <Search size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
                   </div>
                 )}
-                <div className="overflow-y-auto custom-scrollbar" style={{ maxHeight: coords.maxHeight }}>
+
+                <div className="overflow-y-auto overscroll-contain flex-1 divide-y divide-gray-50/80 custom-scrollbar">
                   {filteredOptions.length === 0 && (
-                    <div className="px-3 py-2.5 text-sm text-gray-400 font-bold text-center">
-                      لا توجد نتائج
+                    <div className="px-4 py-6 text-xs text-gray-400 font-bold text-center">
+                      لا توجد نتائج مطابقة
                     </div>
                   )}
                   {filteredOptions.map((opt) => (
@@ -170,9 +246,25 @@ export const ModernDropdown = ({
                         onChange(opt.value);
                         setIsOpen(false);
                       }}
-                      className="w-full flex justify-between items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-[#C5A059]/10 hover:text-[#0D4435] font-bold transition-colors text-right"
+                      className={`w-full flex items-center justify-between px-3.5 py-3 text-xs hover:bg-[#0D4435]/5 hover:text-[#0D4435] transition-colors text-right cursor-pointer ${
+                        opt.value === value ? "bg-[#0D4435]/10 font-black text-[#0D4435]" : "text-gray-700 font-bold"
+                      }`}
                     >
-                      <span className="truncate">{opt.label}</span>
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1 text-right">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{opt.label}</span>
+                          {opt.badge && (
+                            <span className="px-1.5 py-0.5 bg-[#0D4435]/10 text-[#0D4435] rounded text-[10px] font-black shrink-0">
+                              {opt.badge}
+                            </span>
+                          )}
+                        </div>
+                        {opt.subLabel && (
+                          <span className="text-[10px] text-gray-400 font-mono text-right" dir="ltr">
+                            {opt.subLabel}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>

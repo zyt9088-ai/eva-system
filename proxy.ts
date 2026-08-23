@@ -3,9 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const STAFF_PREFIXES = ["/dashboard", "/tech-eval", "/vendor-perf", "/print"];
 // Any authenticated role (not just staff) can hit these — /eval/[id] is the
-// evaluation form itself, gated here so no anonymous "pick your name" access
-// is possible; the page's own logic further restricts it to a matched email.
-const EMPLOYEE_PREFIXES = ["/my-tasks", "/eval"];
+// evaluation form itself; /direct-purchase allows employees to create and view their direct purchase justifications.
+const EMPLOYEE_PREFIXES = ["/my-tasks", "/eval", "/direct-purchase"];
 const PROTECTED_PREFIXES = [...STAFF_PREFIXES, ...EMPLOYEE_PREFIXES];
 
 export async function proxy(request: NextRequest) {

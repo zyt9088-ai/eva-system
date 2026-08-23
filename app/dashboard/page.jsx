@@ -11,10 +11,11 @@ import {
   ChevronDown,
   Wallet,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
+import { AppHeader } from "@/components/layout/app-header";
 
 const ROLE_LABELS = {
   admin: "مدير مشتريات",
@@ -57,79 +58,7 @@ export default function DashboardHome() {
         }}
       />
 
-      <header className="bg-white border-b border-gray-200 px-6 lg:px-10 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-        <Link href="/dashboard" className="flex items-center gap-4">
-          <img
-            src="/logo.png"
-            alt="شعار النظام"
-            className="h-10 w-auto object-contain"
-          />
-          <h2 className="text-2xl font-black text-[#0D4435]">نظام قيّم</h2>
-        </Link>
-
-        <div className="flex items-center gap-3">
-          {isAdmin && (
-            <Link
-              href="/dashboard/users"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-[#0D4435] transition-colors border border-gray-200"
-            >
-              <ShieldCheck size={16} /> إدارة المستخدمين
-            </Link>
-          )}
-
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition-colors px-4 py-2 rounded-xl border border-gray-200"
-          >
-            <div className="w-9 h-9 bg-[#0D4435]/10 rounded-lg flex items-center justify-center">
-              <Users size={18} className="text-[#0D4435]" />
-            </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-[10px] text-gray-500 font-bold">مرحباً بك</p>
-              <p className="text-xs font-black text-[#0D4435]">
-                {profile ? ROLE_LABELS[profile.role] : "..."}
-              </p>
-            </div>
-            <ChevronDown
-              size={16}
-              className={`text-gray-400 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
-            />
-          </button>
-
-          <AnimatePresence>
-            {isDropdownOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                transition={{ duration: 0.2 }}
-                className="absolute left-0 mt-2 w-56 bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden flex flex-col"
-              >
-                <div className="p-4 border-b border-gray-50 bg-gray-50/50">
-                  <p className="text-xs font-bold text-gray-500 mb-1">
-                    مسجل الدخول بحساب
-                  </p>
-                  <p
-                    className="text-sm font-black text-gray-800 truncate"
-                    dir="ltr"
-                  >
-                    {profile?.email ?? "..."}
-                  </p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center justify-between p-4 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors w-full text-right"
-                >
-                  تسجيل الخروج
-                  <LogOut size={16} />
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="flex-1 p-6 lg:p-10 max-w-6xl mx-auto w-full">
         <div className="mb-10">
@@ -159,6 +88,29 @@ export default function DashboardHome() {
               التقييم واعتمادها.
             </p>
             <div className="inline-flex items-center gap-2 text-sm font-black text-[#0D4435] group-hover:text-[#C5A059] transition-colors">
+              الدخول للنظام <ArrowLeft size={16} />
+            </div>
+          </motion.div>
+
+          <motion.div
+            onClick={() => router.push('/direct-purchase')}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            whileHover={{ y: -5 }}
+            className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden group cursor-pointer"
+          >
+            <div className="absolute top-0 right-0 w-2 h-full bg-[#0D4435] transition-all group-hover:w-full group-hover:opacity-5"></div>
+            <div className="w-14 h-14 bg-[#0D4435]/10 rounded-xl flex items-center justify-center mb-6 border border-[#0D4435]/20 transition-transform group-hover:scale-110">
+              <FileText size={28} className="text-[#0D4435]" />
+            </div>
+            <h3 className="text-xl font-black text-gray-900 mb-2">
+              إدارة الشراء المباشر
+            </h3>
+            <p className="text-sm font-bold text-gray-500 mb-6 leading-relaxed">
+              نماذج مبررات الشراء المباشر، دراسة ومطابقة المشتريات، ومحاضر وتوصيات اللجنة.
+            </p>
+            <div className="inline-flex items-center gap-2 text-sm font-black text-[#0D4435] group-hover:text-[#0D4435] transition-colors">
               الدخول للنظام <ArrowLeft size={16} />
             </div>
           </motion.div>

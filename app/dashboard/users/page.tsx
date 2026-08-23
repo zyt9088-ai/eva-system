@@ -43,6 +43,7 @@ export default function UsersPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, email, full_name, role, created_at")
+        .in("role", ["admin", "specialist"])
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data;
@@ -79,18 +80,44 @@ export default function UsersPage() {
 
   const inviteMutation = useMutation({
     mutationFn: async (email: string) => {
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id, role")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (existingProfile) {
+        if (existingProfile.role === "admin" || existingProfile.role === "specialist") {
+          throw { code: "ALREADY_MEMBER" };
+        }
+        const { error } = await supabase
+          .from("profiles")
+          .update({ role: "specialist" })
+          .eq("id", existingProfile.id);
+        if (error) throw error;
+        return { type: "upgraded" };
+      }
+
       const { error } = await supabase
         .from("pending_invites")
         .insert({ email, role: "specialist", invited_by: profile?.id });
       if (error) throw error;
+      return { type: "invited" };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       setInviteEmail("");
+      queryClient.invalidateQueries({ queryKey: ["profiles"] });
       queryClient.invalidateQueries({ queryKey: ["pending-invites"] });
-      toast.success("تمت إضافة الحساب — سيحصل على صلاحية أخصائي مشتريات فور تسجيل دخوله لأول مرة");
+      if (result?.type === "upgraded") {
+        toast.success("تمت إضافة الموظف وتعيينه أخصائي مشتريات بنجاح");
+      } else {
+        toast.success("تمت إضافة الحساب — سيحصل على صلاحية أخصائي مشتريات فور تسجيل دخوله لأول مرة");
+      }
     },
     onError: (error: any) => {
-      if (error?.code === "23505") {
+      if (error?.code === "ALREADY_MEMBER") {
+        toast.error("هذا المستخدم مضاف مسبقاً في إدارة المستخدمين");
+      } else if (error?.code === "23505") {
         toast.error("هذا الحساب مضاف مسبقًا وبانتظار أول تسجيل دخول");
       } else {
         toast.error("حدث خطأ أثناء إضافة الحساب");
