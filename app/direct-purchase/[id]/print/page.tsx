@@ -159,10 +159,10 @@ export default function DirectPurchasePrintPage({ params }: { params: Promise<{ 
             <span className="text-[10px] font-bold text-gray-200">البيانات الأساسية</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="bg-gray-50/90 p-3 rounded-xl border border-gray-200">
               <p className="text-[10px] font-bold text-gray-500">اسم صاحب الطلب</p>
-              <p className="font-black text-gray-900 mt-0.5 truncate">{request.requester_name}</p>
+              <p className="font-black text-gray-900 mt-0.5">{request.requester_name}</p>
             </div>
             <div className="bg-gray-50/90 p-3 rounded-xl border border-gray-200">
               <p className="text-[10px] font-bold text-gray-500">رقم الطلب (PR)</p>
@@ -170,7 +170,7 @@ export default function DirectPurchasePrintPage({ params }: { params: Promise<{ 
             </div>
             <div className="bg-gray-50/90 p-3 rounded-xl border border-gray-200">
               <p className="text-[10px] font-bold text-gray-500">الإدارة / القسم</p>
-              <p className="font-black text-gray-900 mt-0.5 truncate">{request.department || "—"}</p>
+              <p className="font-black text-gray-900 mt-0.5">{request.department || "—"}</p>
             </div>
             <div className="bg-gray-50/90 p-3 rounded-xl border border-gray-200">
               <p className="text-[10px] font-bold text-gray-500">التكلفة التقديرية</p>
@@ -179,11 +179,17 @@ export default function DirectPurchasePrintPage({ params }: { params: Promise<{ 
                 <SaudiRiyalIcon size={13} className="text-[#C5A059]" />
               </p>
             </div>
-            <div className="bg-gray-50/90 p-3 rounded-xl border border-gray-200">
-              <p className="text-[10px] font-bold text-gray-500">سبب الشراء المباشر</p>
-              <p className="font-black text-[#0D4435] mt-0.5 truncate" title={getReasonLabels(request.reason_type).join(" ، ")}>
-                {getReasonLabels(request.reason_type).join(" ، ") || "—"}
-              </p>
+          </div>
+
+          {/* Reason for Direct Purchase (Full Width & Uncut) */}
+          <div className="bg-gray-50/90 p-3.5 rounded-xl border border-gray-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <span className="text-[11px] font-black text-gray-700 shrink-0">سبب اختيار أسلوب الشراء المباشر:</span>
+            <div className="flex flex-wrap gap-2">
+              {getReasonLabels(request.reason_type).map((lbl, idx) => (
+                <span key={idx} className="font-black text-[#0D4435] bg-[#0D4435]/10 px-3 py-1 rounded-lg border border-[#0D4435]/20 text-xs">
+                  {lbl}
+                </span>
+              ))}
             </div>
           </div>
 

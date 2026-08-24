@@ -329,7 +329,7 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
             <FileText size={18} className="text-[#C5A059]" /> بيانات ومبررات صاحب الطلب
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100/80 flex flex-col justify-between">
               <p className="font-bold text-gray-400 mb-1">صاحب الطلب:</p>
               <div>
@@ -355,22 +355,23 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
             </div>
 
             <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100/80 flex flex-col justify-between">
-              <p className="font-bold text-gray-400 mb-1">سبب الشراء المباشر:</p>
-              <div className="flex flex-wrap gap-1.5 mt-0.5">
-                {getReasonLabels(request.reason_type).map((lbl, idx) => (
-                  <span key={idx} className="font-black text-[#0D4435] text-xs bg-[#0D4435]/10 px-2.5 py-1 rounded-lg border border-[#0D4435]/15">
-                    {lbl}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100/80 flex flex-col justify-between">
               <p className="font-bold text-gray-400 mb-1">مدير الإدارة المعتمد:</p>
               <div>
                 <p className="font-black text-gray-900 text-sm">{request.dept_manager_name || request.dept_manager_email}</p>
                 <p className="text-[11px] font-bold text-gray-500 font-mono mt-0.5 truncate">{request.dept_manager_email}</p>
               </div>
+            </div>
+          </div>
+
+          {/* Direct Purchase Reason (Full width, uncut badges) */}
+          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <span className="font-black text-gray-700 shrink-0">سبب اختيار أسلوب الشراء المباشر:</span>
+            <div className="flex flex-wrap gap-2">
+              {getReasonLabels(request.reason_type).map((lbl, idx) => (
+                <span key={idx} className="font-black text-[#0D4435] text-xs bg-[#0D4435]/10 px-3 py-1.5 rounded-xl border border-[#0D4435]/15">
+                  {lbl}
+                </span>
+              ))}
             </div>
           </div>
 
