@@ -21,6 +21,7 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
   const { createRequest, isCreating } = useDirectPurchase();
 
   const [requestTitle, setRequestTitle] = useState("");
+  const [prNumber, setPrNumber] = useState("");
   const [department, setDepartment] = useState("إدارة المشتريات والعقود");
   const [estimatedCost, setEstimatedCost] = useState("");
   const [selectedReasons, setSelectedReasons] = useState<string[]>(["service_continuation"]);
@@ -173,6 +174,7 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
 
       await createRequest({
         request_title: requestTitle.trim(),
+        pr_number: prNumber.trim() || undefined,
         department: department.trim(),
         estimated_cost: costNum,
         reason_type: selectedReasons.join(","),
@@ -262,16 +264,32 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
             </h3>
 
             <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1.5">وصف / عنوان الطلب *</label>
-                <input
-                  type="text"
-                  required
-                  value={requestTitle}
-                  onChange={(e) => setRequestTitle(e.target.value)}
-                  placeholder="مثال: تجديد رخص برنامج الحماية السنوي"
-                  className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-gray-700 block mb-1.5">وصف / عنوان الطلب *</label>
+                  <input
+                    type="text"
+                    required
+                    value={requestTitle}
+                    onChange={(e) => setRequestTitle(e.target.value)}
+                    placeholder="مثال: تجديد رخص برنامج الحماية السنوي"
+                    className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">
+                    <span>رقم الطلب (PR)</span>
+                    <span className="text-[10px] font-normal text-gray-400 font-mono">PR-XXXXXX</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={prNumber}
+                    onChange={(e) => setPrNumber(e.target.value)}
+                    placeholder="مثال: PR-1002345"
+                    className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all font-mono"
+                    dir="ltr"
+                  />
+                </div>
               </div>
 
               <div>

@@ -103,10 +103,15 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
         {/* Title Banner */}
         <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="px-3 py-1 bg-[#0D4435]/10 text-[#0D4435] rounded-xl text-xs font-black">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <span className="px-3 py-1 bg-[#0D4435]/10 text-[#0D4435] rounded-xl text-xs font-black font-mono">
                 {request.request_number}
               </span>
+              {request.pr_number && (
+                <span className="px-3 py-1 bg-[#C5A059]/10 text-[#856525] border border-[#C5A059]/25 rounded-xl text-xs font-black font-mono" dir="ltr">
+                  PR: {request.pr_number}
+                </span>
+              )}
               <span className="text-xs font-bold text-gray-400">
                 تاريخ الإنشاء: {new Date(request.created_at).toLocaleDateString("ar-SA")}
               </span>
@@ -324,12 +329,20 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
             <FileText size={18} className="text-[#C5A059]" /> بيانات ومبررات صاحب الطلب
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
             <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100/80 flex flex-col justify-between">
               <p className="font-bold text-gray-400 mb-1">صاحب الطلب:</p>
               <div>
                 <p className="font-black text-gray-900 text-sm">{request.requester_name}</p>
                 <p className="text-[11px] font-bold text-gray-500 font-mono mt-0.5 truncate">{request.requester_email}</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100/80 flex flex-col justify-between">
+              <p className="font-bold text-gray-400 mb-1">رقم طلب الشراء (PR):</p>
+              <div>
+                <p className="font-black text-[#0D4435] text-sm font-mono" dir="ltr">{request.pr_number || "—"}</p>
+                <p className="text-[11px] font-bold text-gray-400 mt-0.5">Purchase Requisition</p>
               </div>
             </div>
 

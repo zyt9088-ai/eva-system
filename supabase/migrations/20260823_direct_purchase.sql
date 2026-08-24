@@ -31,6 +31,7 @@ create policy "admin manages committee" on public.direct_purchase_committee
 create table if not exists public.direct_purchase_requests (
   id uuid primary key default gen_random_uuid(),
   request_number text not null unique,
+  pr_number text,
   created_by uuid references auth.users(id) on delete set null,
   requester_name text not null,
   requester_email text not null,
@@ -83,6 +84,8 @@ create table if not exists public.direct_purchase_requests (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.direct_purchase_requests add column if not exists pr_number text;
 
 alter table public.direct_purchase_requests enable row level security;
 

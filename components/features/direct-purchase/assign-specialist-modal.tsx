@@ -103,6 +103,9 @@ export function AssignSpecialistModal({ request, isOpen, onClose }: AssignSpecia
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-1.5 text-xs">
             <p className="font-bold text-gray-500">عنوان الطلب: <span className="font-black text-gray-800">{request.request_title}</span></p>
+            {request.pr_number && (
+              <p className="font-bold text-gray-500">رقم طلب الشراء (PR): <span className="font-black text-[#0D4435] font-mono" dir="ltr">{request.pr_number}</span></p>
+            )}
             <p className="font-bold text-gray-500">الإدارة الطالبة: <span className="font-black text-gray-800">{request.department}</span></p>
             <p className="font-bold text-gray-500 flex items-center gap-1">التكلفة التقديرية: <span className="font-black text-[#0D4435]">{Number(request.estimated_cost).toLocaleString()}</span> <SaudiRiyalIcon size={14} className="text-[#C5A059]" /></p>
           </div>

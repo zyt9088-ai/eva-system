@@ -20,6 +20,7 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
   const { updateRequest, isUpdating } = useDirectPurchase();
 
   const [requestTitle, setRequestTitle] = useState(request.request_title || "");
+  const [prNumber, setPrNumber] = useState(request.pr_number || "");
   const [department, setDepartment] = useState(request.department || "إدارة المشتريات والعقود");
   const [estimatedCost, setEstimatedCost] = useState(request.estimated_cost ? String(request.estimated_cost) : "");
   const [selectedReasons, setSelectedReasons] = useState<string[]>(
@@ -48,6 +49,7 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
   useEffect(() => {
     if (request) {
       setRequestTitle(request.request_title || "");
+      setPrNumber(request.pr_number || "");
       setDepartment(request.department || "إدارة المشتريات والعقود");
       setEstimatedCost(request.estimated_cost ? String(request.estimated_cost) : "");
       setSelectedReasons(
@@ -186,6 +188,7 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
         id: request.id,
         updates: {
           request_title: requestTitle.trim(),
+          pr_number: prNumber.trim() || undefined,
           department: department.trim(),
           estimated_cost: normalizedCost,
           reason_type: selectedReasons.join(","),
@@ -260,7 +263,7 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
               <User size={16} className="text-[#C5A059]" /> معلومات صاحب الطلب والإدارة
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1.5">عنوان وموضوع الطلب *</label>
                 <input
@@ -282,6 +285,21 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
                   onChange={(e) => setDepartment(e.target.value)}
                   placeholder="مثال: الإدارة العامة لتقنية المعلومات"
                   className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">
+                  <span>رقم الطلب (PR)</span>
+                  <span className="text-[10px] font-normal text-gray-400 font-mono">PR-XXXXXX</span>
+                </label>
+                <input
+                  type="text"
+                  value={prNumber}
+                  onChange={(e) => setPrNumber(e.target.value)}
+                  placeholder="مثال: PR-1002345"
+                  className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all font-mono"
+                  dir="ltr"
                 />
               </div>
             </div>

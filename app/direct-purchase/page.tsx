@@ -36,6 +36,7 @@ export default function DirectPurchaseDashboardPage() {
     filteredRequests = filteredRequests.filter(
       (r) =>
         r.request_number?.toLowerCase().includes(term) ||
+        r.pr_number?.toLowerCase().includes(term) ||
         r.request_title?.toLowerCase().includes(term) ||
         r.requester_name?.toLowerCase().includes(term) ||
         r.vendor_name?.toLowerCase().includes(term) ||
@@ -208,11 +209,18 @@ export default function DirectPurchaseDashboardPage() {
                   <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-l from-[#C5A059] to-[#0D4435]"></div>
 
                   <div>
-                    {/* Header: Request number and status */}
+                    {/* Header: Request number, PR number, and status */}
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="text-xs font-black text-[#0D4435] bg-[#0D4435]/5 px-2.5 py-1 rounded-lg border border-[#0D4435]/10">
-                        {req.request_number}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-black text-[#0D4435] bg-[#0D4435]/5 px-2.5 py-1 rounded-lg border border-[#0D4435]/10 font-mono">
+                          {req.request_number}
+                        </span>
+                        {req.pr_number && (
+                          <span className="text-[11px] font-black text-[#856525] bg-[#C5A059]/10 px-2 py-0.5 rounded-lg border border-[#C5A059]/25 font-mono" dir="ltr">
+                            {req.pr_number}
+                          </span>
+                        )}
+                      </div>
                       <div className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}>
                         {statusCfg.label}
                       </div>

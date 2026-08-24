@@ -200,6 +200,7 @@ export const SPECIALIST_CHECKLIST_SECTIONS: ChecklistSectionDef[] = [
 export interface DirectPurchaseRequest {
   id: string;
   request_number: string;
+  pr_number?: string;
   created_by?: string;
   requester_name: string;
   requester_email: string;
