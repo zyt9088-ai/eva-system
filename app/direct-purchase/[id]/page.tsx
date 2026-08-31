@@ -17,13 +17,14 @@ import { DeptManagerApprovalModal } from "@/components/features/direct-purchase/
 import { EditDirectPurchaseModal } from "@/components/features/direct-purchase/edit-direct-purchase-modal";
 import { AssignSpecialistModal } from "@/components/features/direct-purchase/assign-specialist-modal";
 import { SpecialistReviewModal } from "@/components/features/direct-purchase/specialist-review-modal";
-import { CommitteeMinutesModal } from "@/components/features/direct-purchase/committee-minutes-modal";
 import { AdminFinalApprovalModal } from "@/components/features/direct-purchase/admin-final-approval-modal";
 import {
   STATUS_CONFIG, SPECIALIST_CHECKLIST_SECTIONS,
-  COMMITTEE_ROLE_LABELS, getReasonLabels
+  COMMITTEE_ROLE_LABELS, getReasonLabels, isSecretaryRole
 } from "@/lib/direct-purchase-types";
 import { SaudiRiyalIcon } from "@/components/SaudiRiyalIcon";
+import { openDirectPurchaseAttachment } from "@/lib/direct-purchase-attachments";
+import { toast } from "sonner";
 
 export default function DirectPurchaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -31,7 +32,7 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
   const router = useRouter();
 
   const { profile, isAdmin, isLoading: isProfileLoading } = useCurrentProfile();
-  const { requests, isLoading: isRequestsLoading } = useDirectPurchase();
+  const { requests, committee, isLoading: isRequestsLoading } = useDirectPurchase();
 
   // Modals state
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
@@ -39,7 +40,6 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isSpecialistModalOpen, setIsSpecialistModalOpen] = useState(false);
-  const [isCommitteeModalOpen, setIsCommitteeModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   if (isProfileLoading || isRequestsLoading) {
@@ -64,6 +64,12 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
   const isAssignedSpecialist = request.assigned_specialist_email?.toLowerCase() === userEmail;
   const isRequester = request.requester_email?.toLowerCase() === userEmail;
   const isCommitteeAttendee = request.committee_attendees?.some((a) => a.email.toLowerCase() === userEmail);
+  // At the minutes stage the attendee list is still empty — it's only written
+  // when the minutes are submitted — so the secretary (or their deputy) has to
+  // be recognised from the master committee list instead.
+  const isCommitteeSecretary = committee.some(
+    (m) => m.email.toLowerCase() === userEmail && isSecretaryRole(m.role)
+  );
   const myAttendeeRecord = request.committee_attendees?.find((a) => a.email.toLowerCase() === userEmail);
 
   return (
@@ -260,7 +266,7 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
           )}
 
           {/* 4. Committee Secretary Action */}
-          {request.status === "pending_committee_secretary" && (isAdmin || isCommitteeAttendee) && (
+          {request.status === "pending_committee_secretary" && (isAdmin || isCommitteeSecretary || isCommitteeAttendee) && (
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-100 text-blue-800 rounded-xl flex items-center justify-center shrink-0">
@@ -272,7 +278,7 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
                 </div>
               </div>
               <button
-                onClick={() => setIsCommitteeModalOpen(true)}
+                onClick={() => router.push(`/direct-purchase/${request.id}/minutes`)}
                 className="h-11 px-6 bg-[#0D4435] hover:bg-[#0a3529] text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95"
               >
                 <Users size={16} /> إعداد محضر اجتماع اللجنة
@@ -293,7 +299,7 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
                 </div>
               </div>
               <button
-                onClick={() => setIsCommitteeModalOpen(true)}
+                onClick={() => router.push(`/direct-purchase/${request.id}/minutes`)}
                 className="h-11 px-6 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95"
               >
                 <CheckCheck size={16} /> توثيق إقرار العضو على المحضر
@@ -430,6 +436,8 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
               <p className="text-xs font-black text-gray-700 mb-2.5">المرفقات الداعمة:</p>
               <div className="flex flex-wrap gap-2.5">
                 {request.attachments.map((att: any, idx: number) => {
+                  // New attachments live in storage (`path`); dataUrl/url are
+                  // the legacy inline copies of requests created before that.
                   const fileUrl = att.dataUrl || att.url;
                   return (
                     <a
@@ -439,9 +447,12 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
                       rel="noopener noreferrer"
                       download={att.name}
                       onClick={(e) => {
-                        if (!fileUrl) {
+                        if (att.path) {
                           e.preventDefault();
-                          alert("هذا المرفق تم رفعه في طلب تجريبي سابق قبل تفعيل قارئ الملفات المباشر");
+                          openDirectPurchaseAttachment(att.path);
+                        } else if (!fileUrl) {
+                          e.preventDefault();
+                          toast.error("هذا المرفق تم رفعه في طلب تجريبي سابق قبل تفعيل قارئ الملفات المباشر");
                         }
                       }}
                       className="inline-flex items-center gap-2.5 bg-white hover:bg-emerald-50/70 px-4 py-2.5 rounded-xl border border-gray-200 hover:border-[#0D4435] text-xs font-bold text-gray-800 hover:text-[#0D4435] transition-all shadow-2xs group cursor-pointer"
@@ -664,12 +675,6 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
         request={request}
         isOpen={isSpecialistModalOpen}
         onClose={() => setIsSpecialistModalOpen(false)}
-      />
-
-      <CommitteeMinutesModal
-        request={request}
-        isOpen={isCommitteeModalOpen}
-        onClose={() => setIsCommitteeModalOpen(false)}
       />
 
       <AdminFinalApprovalModal

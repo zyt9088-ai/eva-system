@@ -8,8 +8,13 @@ import { supabase } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { useDirectPurchase } from "@/hooks/useDirectPurchase";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
+import { UploadProgressBar } from "@/components/ui/upload-progress-bar";
 import { REASON_TYPE_OPTIONS } from "@/lib/direct-purchase-types";
 import { SaudiRiyalIcon } from "@/components/SaudiRiyalIcon";
+
+// Mirrors the direct-purchase-attachments bucket's file_size_limit in
+// supabase/migrations/20260823_direct_purchase.sql.
+const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024;
 
 interface CreateDirectPurchaseModalProps {
   isOpen: boolean;
@@ -40,7 +45,9 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
   const [deptManagerName, setDeptManagerName] = useState("");
 
   // Attachments
-  const [attachments, setAttachments] = useState<Array<{ name: string; size?: number }>>([]);
+  const [attachments, setAttachments] = useState<Array<{ name: string; size: number; file: File }>>([]);
+  // Upload percentage per attachment index, filled in while the save runs.
+  const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
 
   // Fetch employees for dept manager selector
   const { data: employees = [] } = useQuery({
@@ -79,8 +86,9 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
-    const newFiles: Array<{ name: string; size?: number; dataUrl?: string }> = [];
+    // The picked files are uploaded to storage only once the request row
+    // exists (its id is the storage folder), so they're just held here.
+    const newFiles: Array<{ name: string; size: number; file: File }> = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -92,29 +100,13 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
         continue;
       }
 
-      // Validate max 20MB size
-      if (file.size > MAX_SIZE) {
-        toast.error(`الملف "${file.name}" يتجاوز الحد الأقصى المسموح به (20 ميغابايت).`);
+      // Validate max size
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast.error(`الملف "${file.name}" يتجاوز الحد الأقصى المسموح به (30 ميغابايت).`);
         continue;
       }
 
-      try {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        newFiles.push({
-          name: file.name,
-          size: file.size,
-          dataUrl: dataUrl,
-        });
-      } catch (readErr) {
-        console.error("Failed to read file", readErr);
-        toast.error(`تعذر قراءة محتوى الملف "${file.name}"`);
-      }
+      newFiles.push({ name: file.name, size: file.size, file });
     }
 
     if (newFiles.length > 0) {
@@ -136,6 +128,9 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
       setSelectedReasons([...selectedReasons, val]);
     }
   };
+
+  const uploadingCount = Object.keys(uploadProgress).length;
+  const completedUploads = Object.values(uploadProgress).filter((p) => p >= 100).length;
 
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
@@ -174,7 +169,7 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
 
       await createRequest({
         request_title: requestTitle.trim(),
-        pr_number: prNumber.trim() || undefined,
+        pr_number: prNumber.trim() || null,
         department: department.trim(),
         estimated_cost: costNum,
         reason_type: selectedReasons.join(","),
@@ -187,12 +182,18 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
         vendor_contact_email: vendorContactEmail.trim(),
         dept_manager_name: deptManagerName || employees.find((e: any) => e.email === deptManagerEmail)?.name || deptManagerEmail,
         dept_manager_email: deptManagerEmail,
-        attachments: attachments,
+        attachmentFiles: attachments.map((a) => a.file),
+        onUploadProgress: (fileIndex, percent) =>
+          setUploadProgress((prev) => ({ ...prev, [fileIndex]: percent })),
       });
 
+      setAttachments([]);
+      setUploadProgress({});
       onClose();
     } catch (err) {
-      // Error handled in hook toast
+      // Error handled in hook toast — just drop the half-filled bars so a
+      // retry starts from a clean state.
+      setUploadProgress({});
     }
   };
 
@@ -278,14 +279,14 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">
-                    <span>رقم الطلب (PR)</span>
+                    <span>رقم الطلب (PR) <span className="text-[10px] font-normal text-gray-400">(اختياري)</span></span>
                     <span className="text-[10px] font-normal text-gray-400 font-mono">PR-XXXXXX</span>
                   </label>
                   <input
                     type="text"
                     value={prNumber}
                     onChange={(e) => setPrNumber(e.target.value)}
-                    placeholder="مثال: PR-1002345"
+                    placeholder="اتركه فارغاً إن لم يصدر بعد"
                     className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all font-mono"
                     dir="ltr"
                   />
@@ -483,7 +484,7 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
 
             <div>
               <label className="text-xs font-bold text-gray-700 block mb-1.5">
-                المرفقات الداعمة (ملفات PDF فقط — الحد الأقصى 20 ميغابايت) - اختياري
+                المرفقات الداعمة (ملفات PDF فقط — الحد الأقصى 30 ميغابايت) - اختياري
               </label>
               <div className="flex items-center gap-3">
                 <label className="h-11 px-5 bg-white border border-gray-200 hover:border-[#0D4435] text-gray-700 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-sm">
@@ -497,15 +498,35 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
 
               {attachments.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {attachments.map((file, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-700">
-                      <Paperclip size={12} className="text-[#C5A059]" />
-                      <span className="truncate max-w-[200px]">{file.name}</span>
-                      <button type="button" onClick={() => removeAttachment(idx)} className="text-gray-400 hover:text-red-500">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
+                  {attachments.map((file, idx) => {
+                    const percent = uploadProgress[idx];
+                    return (
+                      <div
+                        key={idx}
+                        className="flex flex-col gap-1.5 bg-white px-3 py-2 rounded-lg border border-gray-200 text-xs font-bold text-gray-700 min-w-[210px]"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Paperclip size={12} className="text-[#C5A059] shrink-0" />
+                          <span className="truncate max-w-[170px]">{file.name}</span>
+                          {percent === undefined ? (
+                            <button
+                              type="button"
+                              disabled={isCreating}
+                              onClick={() => removeAttachment(idx)}
+                              className="text-gray-400 hover:text-red-500 mr-auto disabled:opacity-40"
+                            >
+                              <X size={14} />
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-gray-400 font-normal mr-auto">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB
+                            </span>
+                          )}
+                        </div>
+                        {percent !== undefined && <UploadProgressBar percent={percent} />}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -525,7 +546,12 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
               disabled={isCreating}
               className="h-11 px-8 bg-[#0D4435] hover:bg-[#0a3529] text-white rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-md active:scale-95 disabled:opacity-50"
             >
-              <Send size={16} /> {isCreating ? "جارِ الإرسال..." : "إرسال الطلب للاعتماد"}
+              <Send size={16} />{" "}
+              {!isCreating
+                ? "إرسال الطلب للاعتماد"
+                : uploadingCount > 0
+                  ? `جارِ رفع المرفقات (${completedUploads}/${attachments.length})...`
+                  : "جارِ الإرسال..."}
             </button>
           </div>
 

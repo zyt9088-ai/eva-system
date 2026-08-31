@@ -10,9 +10,10 @@ import { supabase } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { useDirectPurchase } from "@/hooks/useDirectPurchase";
 import { AppHeader } from "@/components/layout/app-header";
+import { Tooltip } from "@/components/ui/tooltip";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { COMMITTEE_ROLE_OPTIONS, COMMITTEE_ROLE_LABELS } from "@/lib/direct-purchase-types";
+import { COMMITTEE_ROLE_OPTIONS, COMMITTEE_ROLE_LABELS, STANDARD_COMMITTEE_ROLES } from "@/lib/direct-purchase-types";
 
 export default function DirectPurchaseCommitteePage() {
   const router = useRouter();
@@ -90,7 +91,7 @@ export default function DirectPurchaseCommitteePage() {
 
   const handleOpenEdit = (m: { id: string; name: string; email: string; role: string }) => {
     setEditingMember(m);
-    const isStandardRole = ["chair", "vice_chair", "member", "reserve_member", "secretary"].includes(m.role);
+    const isStandardRole = STANDARD_COMMITTEE_ROLES.includes(m.role);
     if (isStandardRole) {
       setEditRole(m.role);
       setEditCustomRole("");
@@ -252,20 +253,22 @@ export default function DirectPurchaseCommitteePage() {
                     </td>
                     <td className="py-4 px-5 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenEdit(m)}
-                          className="text-gray-400 hover:text-[#0D4435] transition-colors p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
-                          title="تعديل المنصب"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(m)}
-                          className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50 cursor-pointer"
-                          title="حذف من اللجنة"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <Tooltip content="تعديل المنصب">
+                          <button
+                            onClick={() => handleOpenEdit(m)}
+                            className="text-gray-400 hover:text-[#0D4435] transition-colors p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="حذف من اللجنة">
+                          <button
+                            onClick={() => handleDelete(m)}
+                            className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50 cursor-pointer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>

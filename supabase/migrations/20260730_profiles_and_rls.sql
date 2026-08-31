@@ -226,7 +226,9 @@ create policy "admin manages directory" on public.employee_directory
 alter table public.vendors add column if not exists attachment_path text;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('vendor-attachments', 'vendor-attachments', false, 10485760, array['application/pdf'])
+-- 31457280 bytes = 30 MB — kept in sync with MAX_ATTACHMENT_BYTES in
+-- components/features/evaluations/create-eval-modal.tsx.
+values ('vendor-attachments', 'vendor-attachments', false, 31457280, array['application/pdf'])
 on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types,

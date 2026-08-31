@@ -4,6 +4,7 @@ import { Calculator, ClipboardList, Briefcase, Paperclip, CalendarClock, Users, 
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
+import { Tooltip } from "@/components/ui/tooltip";
 
 const openVendorAttachment = async (path: string) => {
   const { data, error } = await supabase.storage.from("vendor-attachments").createSignedUrl(path, 60);
@@ -87,15 +88,21 @@ export function EvaluationForm({
                                     <div className="text-xs text-gray-500 mb-3">{crit.indicator}</div>
                                     
                                     <div className="flex gap-1 text-[10px] mt-2 border-t border-gray-100 pt-2">
-                                      <div className="flex-1 bg-green-50 text-green-700 p-1.5 rounded border border-green-100 text-center" title="تقييم ممتاز">
-                                        {crit.ranges.green}
-                                      </div>
-                                      <div className="flex-1 bg-blue-50 text-blue-700 p-1.5 rounded border border-blue-100 text-center" title="تقييم جيد">
-                                        {crit.ranges.blue}
-                                      </div>
-                                      <div className="flex-1 bg-red-50 text-red-700 p-1.5 rounded border border-red-100 text-center" title="تقييم ضعيف">
-                                        {crit.ranges.red}
-                                      </div>
+                                      <Tooltip content="تقييم ممتاز" className="flex-1">
+                                        <div className="w-full bg-green-50 text-green-700 p-1.5 rounded border border-green-100 text-center">
+                                          {crit.ranges.green}
+                                        </div>
+                                      </Tooltip>
+                                      <Tooltip content="تقييم جيد" className="flex-1">
+                                        <div className="w-full bg-blue-50 text-blue-700 p-1.5 rounded border border-blue-100 text-center">
+                                          {crit.ranges.blue}
+                                        </div>
+                                      </Tooltip>
+                                      <Tooltip content="تقييم ضعيف" className="flex-1">
+                                        <div className="w-full bg-red-50 text-red-700 p-1.5 rounded border border-red-100 text-center">
+                                          {crit.ranges.red}
+                                        </div>
+                                      </Tooltip>
                                     </div>
                                   </td>
                                   {vendorsList.map((_, vIdx) => {
@@ -216,7 +223,9 @@ export function EvaluationForm({
               {vendorsList.map((v, i) => (
                 <div key={i} className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex flex-col justify-between">
                   <div>
-                    <p className="font-bold text-sm text-gray-900 truncate mb-1" title={v.name}>{v.name}</p>
+                    <Tooltip content={v.name} className="block">
+                      <p className="font-bold text-sm text-gray-900 truncate mb-1">{v.name}</p>
+                    </Tooltip>
                   </div>
                   {v.attachmentName && (
                     v.attachmentPath ? (
@@ -253,11 +262,13 @@ export function EvaluationForm({
                     <th className="py-4 px-5 font-bold border-l border-[#0a3529]">{data.type === "EVF" ? "المعيار الفني" : "وصف البند"}</th>
                     {data.type === "EVF" && <th className="py-4 px-4 font-bold text-center border-l border-[#0a3529]">الوزن</th>}
                     {vendorsList.map((v, vIdx) => (
-                      <th key={vIdx} className="py-3 px-4 font-bold text-center border-l border-[#0a3529] text-xs max-w-[150px] truncate bg-[#C5A059]" title={v.name}>
-                        مورد {vIdx + 1}
-                        <br />
-                        <span className="font-normal text-[10px] text-white/90">{v.name}</span>
-                        {data.type === "EVF" && <span className="block text-[11px] text-yellow-200 mt-1 font-black tracking-widest">0 - 10</span>}
+                      <th key={vIdx} className="py-3 px-4 font-bold text-center border-l border-[#0a3529] text-xs max-w-[150px] truncate bg-[#C5A059]">
+                        <Tooltip content={v.name} className="block">
+                          مورد {vIdx + 1}
+                          <br />
+                          <span className="font-normal text-[10px] text-white/90">{v.name}</span>
+                          {data.type === "EVF" && <span className="block text-[11px] text-yellow-200 mt-1 font-black tracking-widest">0 - 10</span>}
+                        </Tooltip>
                       </th>
                     ))}
                   </tr>

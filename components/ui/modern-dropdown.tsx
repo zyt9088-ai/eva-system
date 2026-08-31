@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Tooltip } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Search } from "lucide-react";
 
@@ -156,9 +157,12 @@ export const ModernDropdown = ({
       >
         <div className="flex-1 min-w-0 max-w-full text-right overflow-hidden">
           {selectedOption ? (
+            <Tooltip
+              content={`${selectedOption.label} ${selectedOption.badge ? `(${selectedOption.badge})` : ""} ${selectedOption.subLabel || ""}`}
+              className="block max-w-full"
+            >
             <div
               className="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap py-0.5 max-w-full"
-              title={`${selectedOption.label} ${selectedOption.badge ? `(${selectedOption.badge})` : ""} ${selectedOption.subLabel || ""}`}
             >
               <span className="font-black text-gray-900 shrink-0">{selectedOption.label}</span>
               {selectedOption.badge && (
@@ -172,6 +176,7 @@ export const ModernDropdown = ({
                 </span>
               )}
             </div>
+            </Tooltip>
           ) : (
             <span className="text-gray-400 font-bold truncate block">{placeholder}</span>
           )}

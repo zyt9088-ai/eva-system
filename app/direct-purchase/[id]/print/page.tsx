@@ -342,6 +342,26 @@ export default function DirectPurchasePrintPage({ params }: { params: Promise<{ 
             </div>
 
             <div className="p-4 bg-gray-50/90 rounded-xl border border-gray-200 text-xs space-y-2.5 leading-relaxed">
+              {(request.committee_minutes_number || request.committee_meeting_date || request.committee_meeting_place) && (
+                <div className="grid grid-cols-3 gap-3 pb-2.5 mb-1 border-b border-gray-200">
+                  <div>
+                    <span className="text-gray-500 text-[10px] font-bold block">رقم المحضر</span>
+                    <span className="font-black text-gray-800">{request.committee_minutes_number || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 text-[10px] font-bold block">تاريخ الانعقاد</span>
+                    <span className="font-black text-gray-800">
+                      {request.committee_meeting_date
+                        ? new Date(request.committee_meeting_date).toLocaleDateString("ar-SA")
+                        : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 text-[10px] font-bold block">مكان الانعقاد</span>
+                    <span className="font-black text-gray-800">{request.committee_meeting_place || "—"}</span>
+                  </div>
+                </div>
+              )}
               <p className="font-bold text-gray-800">{request.committee_overview}</p>
               
               <div className="p-3 bg-white rounded-xl border border-gray-200 flex items-center justify-between gap-4">

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { AppHeader } from "@/components/layout/app-header";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface Employee {
@@ -326,12 +327,16 @@ export default function EmployeesDirectoryPage() {
                     <td className="py-4 px-5 font-bold text-gray-600">{emp.department || "—"}</td>
                     <td className="py-4 px-5">
                       <div className="flex items-center justify-center gap-3">
-                        <button onClick={() => handleEditClick(emp)} className="text-gray-400 hover:text-[#0D4435] transition-colors" title="تعديل">
-                          <Pencil size={16} />
-                        </button>
-                        <button onClick={() => handleDelete(emp)} className="text-gray-400 hover:text-red-500 transition-colors" title="حذف">
-                          <Trash2 size={16} />
-                        </button>
+                        <Tooltip content="تعديل بيانات الموظف">
+                          <button onClick={() => handleEditClick(emp)} className="text-gray-400 hover:text-[#0D4435] transition-colors cursor-pointer">
+                            <Pencil size={16} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="حذف الموظف من الدليل">
+                          <button onClick={() => handleDelete(emp)} className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
+                            <Trash2 size={16} />
+                          </button>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>

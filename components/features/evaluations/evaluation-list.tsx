@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, AlertCircle, Users, CheckCircle2, History, Eye, Pencil, Link as LinkIcon, Trash2, Briefcase, Search, Bell, User } from "lucide-react";
 import { getHighestScore } from "@/lib/evaluation-utils";
+import { Tooltip } from "@/components/ui/tooltip";
 
 interface EvaluationListProps {
   paginatedData: any[];
@@ -93,31 +94,45 @@ export const EvaluationList = ({
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openHistoryModal(ev)} className="text-gray-400 hover:text-purple-600 transition-colors" title="سجل الطلب والتواريخ">
-                            <History size={16} />
-                          </button>
-                          <button onClick={() => openViewingModal(ev)} className="text-gray-400 hover:text-[#0D4435] transition-colors" title="إطلاع التفاصيل">
-                            <Eye size={16} />
-                          </button>
-                          <button onClick={() => handleEdit(ev)} className="text-gray-400 hover:text-[#C5A059] transition-colors" title="تعديل">
-                            <Pencil size={16} />
-                          </button>
-                          <button onClick={() => copyEvalLink(ev.id)} className="text-gray-400 hover:text-blue-600 transition-colors" title="نسخ الرابط">
-                            <LinkIcon size={16} />
-                          </button>
-                          <button onClick={() => onRemind(ev.id)} className="text-gray-400 hover:text-amber-600 transition-colors" title="تذكير">
-                            <Bell size={16} />
-                          </button>
-                          {isAdmin && (
-                            <button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="حذف">
-                              <Trash2 size={16} />
+                          <Tooltip content="سجل الطلب والتواريخ">
+                            <button onClick={() => openHistoryModal(ev)} className="text-gray-400 hover:text-purple-600 transition-colors cursor-pointer">
+                              <History size={16} />
                             </button>
+                          </Tooltip>
+                          <Tooltip content="إطلاع التفاصيل">
+                            <button onClick={() => openViewingModal(ev)} className="text-gray-400 hover:text-[#0D4435] transition-colors cursor-pointer">
+                              <Eye size={16} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip content="تعديل">
+                            <button onClick={() => handleEdit(ev)} className="text-gray-400 hover:text-[#C5A059] transition-colors cursor-pointer">
+                              <Pencil size={16} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip content="نسخ الرابط">
+                            <button onClick={() => copyEvalLink(ev.id)} className="text-gray-400 hover:text-blue-600 transition-colors cursor-pointer">
+                              <LinkIcon size={16} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip content="تذكير">
+                            <button onClick={() => onRemind(ev.id)} className="text-gray-400 hover:text-amber-600 transition-colors cursor-pointer">
+                              <Bell size={16} />
+                            </button>
+                          </Tooltip>
+                          {isAdmin && (
+                            <Tooltip content="حذف">
+                              <button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
+                                <Trash2 size={16} />
+                              </button>
+                            </Tooltip>
                           )}
                         </div>
                       </div>
-                      <h3 className="font-bold text-[#222222] text-lg leading-snug line-clamp-2 mb-3" title={ev.projectName}>
-                        {ev.projectName}
-                      </h3>
+                      <Tooltip content={ev.projectName} className="block">
+                        <h3 className="font-bold text-[#222222] text-lg leading-snug line-clamp-2 mb-3">
+                          {ev.projectName}
+                        </h3>
+                      </Tooltip>
                       {isAdmin && creatorsById?.[ev.createdBy] && (
                         <div className="mb-3 text-[11px] font-bold text-gray-500 flex items-center gap-1">
                           <User size={12} /> بواسطة: <span className="text-gray-700">{creatorsById[ev.createdBy]}</span>
@@ -130,9 +145,9 @@ export const EvaluationList = ({
                       )}
                       <div className="flex-1 space-y-4">
                         <div className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                          <span className="font-bold truncate text-xs" title={displayVendorName}>
-                            {displayVendorName}
-                          </span>
+                          <Tooltip content={displayVendorName} className="min-w-0">
+                            <span className="font-bold truncate text-xs">{displayVendorName}</span>
+                          </Tooltip>
                           <Briefcase size={16} className="text-gray-400 shrink-0" />
                         </div>
 
@@ -228,7 +243,9 @@ export const EvaluationList = ({
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="font-bold text-gray-700 mb-1" title={displayVendorName}>{displayVendorName}</div>
+                            <Tooltip content={displayVendorName} className="block">
+                              <div className="font-bold text-gray-700 mb-1">{displayVendorName}</div>
+                            </Tooltip>
                           </td>
                           {isAdmin && (
                             <td className="px-6 py-4">
@@ -246,17 +263,19 @@ export const EvaluationList = ({
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                               {ev.status === "EVALUATED" && (
-                                <button onClick={() => updateStatus(ev.id, 'APPROVED')} className="text-green-600 hover:text-green-800 transition-colors" title="اعتماد نهائي">
-                                  <CheckCircle2 size={18} />
-                                </button>
+                                <Tooltip content="اعتماد نهائي">
+                                  <button onClick={() => updateStatus(ev.id, 'APPROVED')} className="text-green-600 hover:text-green-800 transition-colors cursor-pointer">
+                                    <CheckCircle2 size={18} />
+                                  </button>
+                                </Tooltip>
                               )}
-                              <button onClick={() => openHistoryModal(ev)} className="text-gray-400 hover:text-purple-600 transition-colors" title="سجل الطلب"><History size={18} /></button>
-                              <button onClick={() => copyEvalLink(ev.id)} className="text-gray-400 hover:text-blue-600 transition-colors" title="نسخ الرابط"><LinkIcon size={18} /></button>
-                              <button onClick={() => onRemind(ev.id)} className="text-gray-400 hover:text-amber-600 transition-colors" title="تذكير"><Bell size={18} /></button>
-                              <button onClick={() => openViewingModal(ev)} className="text-gray-400 hover:text-[#0D4435] transition-colors" title="إطلاع"><Eye size={18} /></button>
-                              <button onClick={() => handleEdit(ev)} className="text-gray-400 hover:text-[#C5A059] transition-colors" title="تعديل"><Pencil size={18} /></button>
+                              <Tooltip content="سجل الطلب"><button onClick={() => openHistoryModal(ev)} className="text-gray-400 hover:text-purple-600 transition-colors cursor-pointer"><History size={18} /></button></Tooltip>
+                              <Tooltip content="نسخ الرابط"><button onClick={() => copyEvalLink(ev.id)} className="text-gray-400 hover:text-blue-600 transition-colors cursor-pointer"><LinkIcon size={18} /></button></Tooltip>
+                              <Tooltip content="تذكير"><button onClick={() => onRemind(ev.id)} className="text-gray-400 hover:text-amber-600 transition-colors cursor-pointer"><Bell size={18} /></button></Tooltip>
+                              <Tooltip content="إطلاع"><button onClick={() => openViewingModal(ev)} className="text-gray-400 hover:text-[#0D4435] transition-colors cursor-pointer"><Eye size={18} /></button></Tooltip>
+                              <Tooltip content="تعديل"><button onClick={() => handleEdit(ev)} className="text-gray-400 hover:text-[#C5A059] transition-colors cursor-pointer"><Pencil size={18} /></button></Tooltip>
                               {isAdmin && (
-                                <button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="حذف"><Trash2 size={18} /></button>
+                                <Tooltip content="حذف"><button onClick={() => handleDelete(ev.id)} className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"><Trash2 size={18} /></button></Tooltip>
                               )}
                             </div>
                           </td>

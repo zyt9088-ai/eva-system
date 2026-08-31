@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, CheckCircle2, XCircle, Users, Send, FileText, CheckCheck, Clock, ShieldCheck, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { DirectPurchaseRequest, INTAKE_METHOD_OPTIONS, COMMITTEE_ROLE_OPTIONS, COMMITTEE_ROLE_LABELS } from "@/lib/direct-purchase-types";
+import { DirectPurchaseRequest, INTAKE_METHOD_OPTIONS, COMMITTEE_ROLE_OPTIONS, COMMITTEE_ROLE_LABELS, isSecretaryRole } from "@/lib/direct-purchase-types";
 import { useDirectPurchase } from "@/hooks/useDirectPurchase";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
@@ -43,6 +43,13 @@ export function CommitteeMinutesModal({ request, isOpen, onClose }: CommitteeMin
   const [memberNotes, setMemberNotes] = useState("");
   const [memberAgreed, setMemberAgreed] = useState(false);
 
+  // Auto-generated overview text. Both this and the state below must stay
+  // above the `if (!isOpen) return null` guard — a hook after an early return
+  // changes the hook count between renders and crashes React on open.
+  const defaultOverview = `قامت إدارة المشتريات باستلام النسخة الإلكترونية من العرض الفني والمالي من مدير المشروع / ${request.requester_name} عن طريق (${intakeMethod === "email" ? "البريد الإلكتروني" : "نظام قيّم"}) وذلك برغبة بتوجهه عن طريق الشراء المباشر بتاريخ ${new Date(request.created_at).toLocaleDateString("ar-SA")}.`;
+
+  const [overviewText, setOverviewText] = useState(request.committee_overview || defaultOverview);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -58,15 +65,17 @@ export function CommitteeMinutesModal({ request, isOpen, onClose }: CommitteeMin
 
   const userEmail = profile?.email || "";
   const myAttendeeIndex = attendees.findIndex((a) => a.email.toLowerCase() === userEmail.toLowerCase());
-  const isSecretaryOrAdmin = isAdmin || request.committee_attendees?.some((a) => a.email.toLowerCase() === userEmail.toLowerCase() && a.role === "secretary") || committee.some((m) => m.email.toLowerCase() === userEmail.toLowerCase() && m.role === "secretary");
+  // The secretary, their deputy, or an admin may prepare the minutes — checked
+  // against both this request's attendee list and the master committee list.
+  const isSecretaryOrAdmin =
+    isAdmin ||
+    request.committee_attendees?.some(
+      (a) => a.email.toLowerCase() === userEmail.toLowerCase() && isSecretaryRole(a.role)
+    ) ||
+    committee.some((m) => m.email.toLowerCase() === userEmail.toLowerCase() && isSecretaryRole(m.role));
   const isPendingApproval = request.status === "pending_committee_approval";
   const myAttendeeRecord = myAttendeeIndex !== -1 ? attendees[myAttendeeIndex] : null;
   const hasMemberApproved = !!myAttendeeRecord?.has_approved;
-
-  // Auto-generated overview text
-  const defaultOverview = `قامت إدارة المشتريات باستلام النسخة الإلكترونية من العرض الفني والمالي من مدير المشروع / ${request.requester_name} عن طريق (${intakeMethod === "email" ? "البريد الإلكتروني" : "نظام قيّم"}) وذلك برغبة بتوجهه عن طريق الشراء المباشر بتاريخ ${new Date(request.created_at).toLocaleDateString("ar-SA")}.`;
-
-  const [overviewText, setOverviewText] = useState(request.committee_overview || defaultOverview);
 
   // Toggle attendee presence
   const toggleAttendee = (email: string, name: string, defaultRole: string) => {

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { AppHeader } from "@/components/layout/app-header";
+import { Tooltip } from "@/components/ui/tooltip";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
@@ -237,13 +238,14 @@ export default function UsersPage() {
               {invites.map((inv: any) => (
                 <div key={inv.email} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5">
                   <span className="text-sm font-bold text-gray-700" dir="ltr">{inv.email}</span>
-                  <button
-                    onClick={() => cancelInviteMutation.mutate(inv.email)}
-                    className="text-gray-400 hover:text-red-500 transition-colors"
-                    title="إلغاء الدعوة"
-                  >
-                    <X size={16} />
-                  </button>
+                  <Tooltip content="إلغاء الدعوة">
+                    <button
+                      onClick={() => cancelInviteMutation.mutate(inv.email)}
+                      className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                    >
+                      <X size={16} />
+                    </button>
+                  </Tooltip>
                 </div>
               ))}
             </div>
@@ -281,13 +283,14 @@ export default function UsersPage() {
                     </td>
                     <td className="py-4 px-5 text-center">
                       {u.id !== profile?.id && (
-                        <button
-                          onClick={() => handleDeleteUser(u)}
-                          className="text-gray-400 hover:text-red-500 transition-colors"
-                          title="حذف المستخدم"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <Tooltip content="حذف المستخدم">
+                          <button
+                            onClick={() => handleDeleteUser(u)}
+                            className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </Tooltip>
                       )}
                     </td>
                   </tr>

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { DirectPurchaseRequest, SPECIALIST_CHECKLIST_SECTIONS } from "@/lib/direct-purchase-types";
 import { useDirectPurchase } from "@/hooks/useDirectPurchase";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
+import { notifyDirectPurchase } from "@/lib/direct-purchase-notify";
 import { SaudiRiyalIcon } from "@/components/SaudiRiyalIcon";
 
 interface SpecialistReviewModalProps {
@@ -116,6 +117,7 @@ export function SpecialistReviewModal({ request, isOpen, onClose }: SpecialistRe
 
       if (isHighValue) {
         toast.success("تم إكمال المراجعة وتحويل الطلب إلى أمين لجنة الشراء المباشر");
+        notifyDirectPurchase(request.id, "referred_to_committee");
       } else {
         toast.success("تم إكمال المراجعة وتحويل الطلب إلى مدير المشتريات للاعتماد النهائي");
       }
@@ -144,6 +146,7 @@ export function SpecialistReviewModal({ request, isOpen, onClose }: SpecialistRe
       });
 
       toast.success("تمت إحالة الطلب إلى لجنة الشراء المباشر");
+      notifyDirectPurchase(request.id, "referred_to_committee");
       onClose();
     } catch (err) {
       // handled

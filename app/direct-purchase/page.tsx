@@ -5,24 +5,58 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   FileText, Plus, Search, Filter, Clock, CheckCircle2, AlertCircle,
-  Users, Building, DollarSign, ArrowLeft, Eye, Calendar, Sparkles, Inbox
+  Users, Building, DollarSign, ArrowLeft, Eye, Calendar, Sparkles, Inbox,
+  History, Pencil, Link as LinkIcon, Bell, Trash2, Printer
 } from "lucide-react";
+import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/app-header";
 import { LoadingScreen } from "@/components/ui/loading-screen";
+import { Tooltip } from "@/components/ui/tooltip";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { useDirectPurchase } from "@/hooks/useDirectPurchase";
 import { CreateDirectPurchaseModal } from "@/components/features/direct-purchase/create-direct-purchase-modal";
-import { STATUS_CONFIG, getReasonLabels } from "@/lib/direct-purchase-types";
+import { EditDirectPurchaseModal } from "@/components/features/direct-purchase/edit-direct-purchase-modal";
+import { DirectPurchaseHistoryModal } from "@/components/features/direct-purchase/history-modal";
+import { STATUS_CONFIG, getReasonLabels, DirectPurchaseRequest } from "@/lib/direct-purchase-types";
 import { SaudiRiyalIcon } from "@/components/SaudiRiyalIcon";
 
 export default function DirectPurchaseDashboardPage() {
   const router = useRouter();
   const { profile, isAdmin, isLoading: isProfileLoading } = useCurrentProfile();
-  const { requests, isLoading: isRequestsLoading } = useDirectPurchase();
+  const { requests, isLoading: isRequestsLoading, deleteRequest, remindRequest } = useDirectPurchase();
+  const confirm = useConfirm();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [historyRequest, setHistoryRequest] = useState<DirectPurchaseRequest | null>(null);
+  const [editRequest, setEditRequest] = useState<DirectPurchaseRequest | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
+
+  // Editing is only open while the request sits back with its owner, matching
+  // the same gate used on the request's detail page.
+  const canEdit = (req: DirectPurchaseRequest) =>
+    req.status === "returned_to_requester" &&
+    (isAdmin || req.created_by === profile?.id || req.requester_email === profile?.email);
+
+  const copyRequestLink = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/direct-purchase/${id}`);
+      toast.success("تم نسخ رابط الطلب");
+    } catch {
+      toast.error("تعذّر نسخ الرابط");
+    }
+  };
+
+  const handleDelete = async (req: DirectPurchaseRequest) => {
+    const ok = await confirm({
+      title: "حذف طلب الشراء المباشر",
+      message: `سيتم حذف الطلب رقم ${req.request_number} نهائياً ولا يمكن التراجع عن ذلك.`,
+      confirmLabel: "حذف نهائي",
+      danger: true,
+    });
+    if (ok) deleteRequest(req.id);
+  };
 
   if (isProfileLoading || isRequestsLoading) {
     return <LoadingScreen />;
@@ -226,6 +260,70 @@ export default function DirectPurchaseDashboardPage() {
                       </div>
                     </div>
 
+                    {/* Quick actions — same set as the evaluation cards */}
+                    <div className="flex items-center gap-1.5 mb-3 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <Tooltip content="سجل الطلب والتواريخ">
+                        <button
+                          onClick={() => setHistoryRequest(req)}
+                          className="text-gray-400 hover:text-purple-600 transition-colors cursor-pointer"
+                        >
+                          <History size={16} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="إطلاع التفاصيل">
+                        <button
+                          onClick={() => router.push(`/direct-purchase/${req.id}`)}
+                          className="text-gray-400 hover:text-[#0D4435] transition-colors cursor-pointer"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="طباعة النموذج">
+                        <button
+                          onClick={() => router.push(`/direct-purchase/${req.id}/print`)}
+                          className="text-gray-400 hover:text-[#0D4435] transition-colors cursor-pointer"
+                        >
+                          <Printer size={16} />
+                        </button>
+                      </Tooltip>
+                      {canEdit(req) && (
+                        <Tooltip content="تعديل الطلب">
+                          <button
+                            onClick={() => setEditRequest(req)}
+                            className="text-gray-400 hover:text-[#C5A059] transition-colors cursor-pointer"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                        </Tooltip>
+                      )}
+                      <Tooltip content="نسخ الرابط">
+                        <button
+                          onClick={() => copyRequestLink(req.id)}
+                          className="text-gray-400 hover:text-blue-600 transition-colors cursor-pointer"
+                        >
+                          <LinkIcon size={16} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="تذكير المسؤول عن المرحلة الحالية">
+                        <button
+                          onClick={() => remindRequest(req.id)}
+                          className="text-gray-400 hover:text-amber-600 transition-colors cursor-pointer"
+                        >
+                          <Bell size={16} />
+                        </button>
+                      </Tooltip>
+                      {isAdmin && (
+                        <Tooltip content="حذف نهائي">
+                          <button
+                            onClick={() => handleDelete(req)}
+                            className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </Tooltip>
+                      )}
+                    </div>
+
                     {/* Title */}
                     <h3 className="text-base font-black text-gray-900 leading-snug mb-3 group-hover:text-[#0D4435] transition-colors line-clamp-2">
                       {req.request_title}
@@ -298,6 +396,20 @@ export default function DirectPurchaseDashboardPage() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
       />
+
+      <DirectPurchaseHistoryModal
+        isOpen={Boolean(historyRequest)}
+        onClose={() => setHistoryRequest(null)}
+        request={historyRequest}
+      />
+
+      {editRequest && (
+        <EditDirectPurchaseModal
+          request={editRequest}
+          isOpen={Boolean(editRequest)}
+          onClose={() => setEditRequest(null)}
+        />
+      )}
     </div>
   );
 }

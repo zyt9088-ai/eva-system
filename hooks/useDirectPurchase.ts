@@ -4,7 +4,47 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { DirectPurchaseRequest, CommitteeMember } from "@/lib/direct-purchase-types";
+import { uploadFileWithProgress } from "@/lib/supabase/upload-with-progress";
+import { notifyDirectPurchase } from "@/lib/direct-purchase-notify";
 import { toast } from "sonner";
+
+const DIRECT_PURCHASE_ATTACHMENTS_BUCKET = "direct-purchase-attachments";
+
+/** Called with the file's index in the passed `attachmentFiles` array, 0–100. */
+export type AttachmentProgressHandler = (fileIndex: number, percent: number) => void;
+
+
+// Supporting PDFs live in storage, not in the row: `attachments` only keeps
+// [{ name, size, path }]. The path is "{request_id}/{uuid}.pdf", so the RLS
+// policies on storage.objects can resolve the owning request from the key.
+async function uploadAttachments(
+  requestId: string,
+  files: File[],
+  onProgress?: AttachmentProgressHandler
+) {
+  const uploaded: Array<{ name: string; size: number; path: string }> = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const path = `${requestId}/${crypto.randomUUID()}.pdf`;
+    onProgress?.(i, 0);
+    await uploadFileWithProgress(DIRECT_PURCHASE_ATTACHMENTS_BUCKET, path, file, (percent) =>
+      onProgress?.(i, percent)
+    );
+    uploaded.push({ name: file.name, size: file.size, path });
+  }
+  return uploaded;
+}
+
+// Files dropped while editing are removed from storage too, so the bucket
+// doesn't accumulate orphans. Best-effort — never fail a save over it.
+async function removeAttachments(paths: string[]) {
+  if (paths.length === 0) return;
+  try {
+    await supabase.storage.from(DIRECT_PURCHASE_ATTACHMENTS_BUCKET).remove(paths);
+  } catch (err) {
+    console.warn("Could not remove dropped attachments:", err);
+  }
+}
 
 export function useDirectPurchase() {
   const queryClient = useQueryClient();
@@ -44,7 +84,14 @@ export function useDirectPurchase() {
 
   // 3. Create Request Mutation
   const createRequestMutation = useMutation({
-    mutationFn: async (newReq: Partial<DirectPurchaseRequest>) => {
+    mutationFn: async ({
+      attachmentFiles = [],
+      onUploadProgress,
+      ...newReq
+    }: Partial<DirectPurchaseRequest> & {
+      attachmentFiles?: File[];
+      onUploadProgress?: AttachmentProgressHandler;
+    }) => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -80,6 +127,29 @@ export function useDirectPurchase() {
         console.error("Supabase insert error:", error);
         throw error;
       }
+
+      // The row has to exist first: its id is the storage folder the RLS
+      // policies read the ownership from. A failed upload must not undo the
+      // request itself — the row is already saved, and the approver still has
+      // to be told about it — so the failure is reported and the flow carries
+      // on without the attachments.
+      if (attachmentFiles.length > 0) {
+        try {
+          const uploaded = await uploadAttachments(data.id, attachmentFiles, onUploadProgress);
+          const { data: withAttachments, error: attachError } = await supabase
+            .from("direct_purchase_requests")
+            .update({ attachments: uploaded })
+            .eq("id", data.id)
+            .select()
+            .single();
+          if (attachError) throw attachError;
+          return withAttachments;
+        } catch (uploadError: unknown) {
+          console.error("Attachment upload failed:", uploadError);
+          toast.error("تم حفظ الطلب، لكن تعذّر رفع المرفقات — عدّل الطلب وأعد إرفاقها");
+        }
+      }
+
       return data;
     },
     onSuccess: (createdData: any) => {
@@ -87,11 +157,10 @@ export function useDirectPurchase() {
       toast.success("تم إرسال مبرر الشراء المباشر بنجاح وتحويله لمدير الإدارة للاعتماد");
 
       if (createdData?.id) {
-        fetch("/api/notify-direct-purchase", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ requestId: createdData.id, action: "created" }),
-        }).catch((err) => console.warn("Failed to trigger email notification:", err));
+        // Still fire-and-forget — a mail problem must never fail the save —
+        // but a rejected send is now reported instead of vanishing, otherwise
+        // the manager simply never hears about the request and nobody knows.
+        notifyDirectPurchase(createdData.id, "created");
       }
     },
     onError: (error: any) => {
@@ -107,11 +176,38 @@ export function useDirectPurchase() {
 
   // 4. Update Request Mutation
   const updateRequestMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<DirectPurchaseRequest> }) => {
+    mutationFn: async ({
+      id,
+      updates,
+      attachmentFiles = [],
+      removedPaths = [],
+      onUploadProgress,
+    }: {
+      id: string;
+      updates: Partial<DirectPurchaseRequest>;
+      attachmentFiles?: File[];
+      removedPaths?: string[];
+      onUploadProgress?: AttachmentProgressHandler;
+    }) => {
+      // `updates.attachments` carries the kept ones; newly picked files are
+      // uploaded here and appended so the caller never deals with storage.
+      const finalUpdates = { ...updates };
+      if (attachmentFiles.length > 0) {
+        // As on create: a storage failure shouldn't throw away the rest of the
+        // edit the user just made — save it, and say the files didn't go up.
+        try {
+          const uploaded = await uploadAttachments(id, attachmentFiles, onUploadProgress);
+          finalUpdates.attachments = [...(updates.attachments || []), ...uploaded];
+        } catch (uploadError: unknown) {
+          console.error("Attachment upload failed:", uploadError);
+          toast.error("تم حفظ التعديلات، لكن تعذّر رفع المرفقات الجديدة");
+        }
+      }
+
       const { data, error } = await supabase
         .from("direct_purchase_requests")
         .update({
-          ...updates,
+          ...finalUpdates,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id)
@@ -119,6 +215,8 @@ export function useDirectPurchase() {
         .single();
 
       if (error) throw error;
+
+      await removeAttachments(removedPaths);
       return data;
     },
     onSuccess: () => {
@@ -198,6 +296,24 @@ export function useDirectPurchase() {
     },
   });
 
+  // Nudges whoever the request is currently waiting on — the API resolves the
+  // recipient from the request's status.
+  const remindMutation = useMutation({
+    mutationFn: async (requestId: string) => {
+      const res = await fetch("/api/notify-direct-purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action: "reminder" }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error || "remind failed");
+      if (body?.success === false) throw new Error(body?.message || "لا يوجد مستلم للتذكير");
+    },
+    onSuccess: () => toast.success("تم إرسال تذكير بالبريد للمسؤول عن المرحلة الحالية"),
+    onError: (error: Error) =>
+      toast.error(error?.message || "تعذّر إرسال التذكير — تأكد من إعداد البريد الإلكتروني"),
+  });
+
   return {
     requests,
     committee,
@@ -205,6 +321,7 @@ export function useDirectPurchase() {
     createRequest: createRequestMutation.mutateAsync,
     updateRequest: updateRequestMutation.mutateAsync,
     deleteRequest: deleteRequestMutation.mutateAsync,
+    remindRequest: (id: string) => remindMutation.mutate(id),
     addCommitteeMember: addCommitteeMemberMutation.mutateAsync,
     updateCommitteeMember: updateCommitteeMemberMutation.mutateAsync,
     deleteCommitteeMember: deleteCommitteeMemberMutation.mutateAsync,

@@ -2,7 +2,9 @@ export interface CommitteeMember {
   id: string;
   name: string;
   email: string;
-  role: 'chair' | 'vice_chair' | 'member' | 'reserve_member' | 'secretary';
+  /** A custom title typed through the "أخرى" option is stored verbatim, so the
+   *  column is wider than this union in practice. */
+  role: 'chair' | 'vice_chair' | 'member' | 'reserve_member' | 'secretary' | 'vice_secretary' | string;
   created_at?: string;
 }
 
@@ -12,6 +14,7 @@ export const COMMITTEE_ROLE_LABELS: Record<string, string> = {
   member: "عضو اللجنة",
   reserve_member: "عضو احتياط",
   secretary: "أمين اللجنة",
+  vice_secretary: "نائب أمين اللجنة",
 };
 
 export const COMMITTEE_ROLE_OPTIONS = [
@@ -20,8 +23,28 @@ export const COMMITTEE_ROLE_OPTIONS = [
   { value: "member", label: "عضو اللجنة" },
   { value: "reserve_member", label: "عضو احتياط" },
   { value: "secretary", label: "أمين اللجنة" },
+  { value: "vice_secretary", label: "نائب أمين اللجنة" },
   { value: "other", label: "أخرى (تحديد مسمى مخصص)" },
 ];
+
+/** Roles allowed to prepare and submit the committee minutes. */
+export const STANDARD_COMMITTEE_ROLES = [
+  "chair",
+  "vice_chair",
+  "member",
+  "reserve_member",
+  "secretary",
+  "vice_secretary",
+];
+
+// Both the secretary and their deputy run the minutes. Custom titles typed
+// before `vice_secretary` existed ("أمين اللجنة بالنيابة", "أمين سر اللجنة", …)
+// are matched on the word itself so those members don't lose access.
+export const isSecretaryRole = (role?: string): boolean => {
+  if (!role) return false;
+  if (role === "secretary" || role === "vice_secretary") return true;
+  return role.includes("أمين");
+};
 
 export const REASON_TYPE_OPTIONS = [
   { value: "service_continuation", label: "استمرار خدمة" },
@@ -200,7 +223,8 @@ export const SPECIALIST_CHECKLIST_SECTIONS: ChecklistSectionDef[] = [
 export interface DirectPurchaseRequest {
   id: string;
   request_number: string;
-  pr_number?: string;
+  /** اختياري — يُحفظ null عند تركه فارغًا. */
+  pr_number?: string | null;
   created_by?: string;
   requester_name: string;
   requester_email: string;
@@ -252,6 +276,10 @@ export interface DirectPurchaseRequest {
   }>;
   committee_submitted_at?: string;
   committee_completed_at?: string;
+  // Formal minutes header
+  committee_minutes_number?: string | null;
+  committee_meeting_date?: string | null;
+  committee_meeting_place?: string | null;
 
   // Overall status
   status: string;

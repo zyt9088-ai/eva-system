@@ -113,3 +113,67 @@ create policy "direct purchase update policy" on public.direct_purchase_requests
 drop policy if exists "admin can delete direct purchase" on public.direct_purchase_requests;
 create policy "admin can delete direct purchase" on public.direct_purchase_requests
   for delete to authenticated using (public.is_admin());
+
+-- 3. Direct purchase attachment storage --------------------------------------
+-- Supporting PDFs (quotations, sole-source letters, ...) used to be stored as
+-- base64 data URLs inside direct_purchase_requests.attachments, which bloated
+-- every row. They now live in this bucket, and the jsonb column only keeps the
+-- metadata: [{ name, size, path }] where path is "{request_id}/{uuid}.pdf".
+-- 31457280 bytes = 30 MB — kept in sync with MAX_SIZE in the create/edit modals.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('direct-purchase-attachments', 'direct-purchase-attachments', false, 31457280, array['application/pdf'])
+on conflict (id) do update set
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types,
+  public = excluded.public;
+
+-- storage.objects already has RLS enabled by default in every Supabase
+-- project, and the SQL editor's role doesn't own that table — don't try to
+-- toggle it here (fails with "must be owner of table objects").
+
+-- Upload is open to any authenticated user, mirroring the request insert
+-- policy above (`with check (true)`) — anyone who may raise a direct purchase
+-- request may attach files to it.
+drop policy if exists "authenticated can upload direct purchase attachments" on storage.objects;
+create policy "authenticated can upload direct purchase attachments" on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'direct-purchase-attachments'
+  );
+
+-- Read/delete piggyback on the request's own select policy: the subquery runs
+-- as the caller, so a file is only reachable by someone who can already see
+-- the request it belongs to (admin, specialist, creator, dept manager or a
+-- committee attendee). The path's first segment is the request id, and it must
+-- be written as storage.objects.name — `name` alone is ambiguous inside the
+-- subquery.
+drop policy if exists "org can read direct purchase attachments" on storage.objects;
+create policy "org can read direct purchase attachments" on storage.objects
+  for select to authenticated using (
+    bucket_id = 'direct-purchase-attachments'
+    and exists (
+      select 1 from public.direct_purchase_requests r
+      where r.id::text = (storage.foldername(objects.name))[1]
+    )
+  );
+
+drop policy if exists "owner can delete direct purchase attachments" on storage.objects;
+create policy "owner can delete direct purchase attachments" on storage.objects
+  for delete to authenticated using (
+    bucket_id = 'direct-purchase-attachments'
+    and exists (
+      select 1 from public.direct_purchase_requests r
+      where r.id::text = (storage.foldername(objects.name))[1]
+        and (
+          public.is_admin()
+          or exists (select 1 from public.profiles where id = auth.uid() and role = 'specialist')
+          or r.created_by = auth.uid()
+        )
+    )
+  );
+
+-- 4. Formal committee minutes header ------------------------------------------
+-- The minutes are a formal record, so they carry their own reference number,
+-- meeting date and venue rather than borrowing the submission timestamp.
+alter table public.direct_purchase_requests add column if not exists committee_minutes_number text;
+alter table public.direct_purchase_requests add column if not exists committee_meeting_date date;
+alter table public.direct_purchase_requests add column if not exists committee_meeting_place text;

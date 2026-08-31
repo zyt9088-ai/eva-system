@@ -7,8 +7,14 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { useDirectPurchase } from "@/hooks/useDirectPurchase";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
+import { Tooltip } from "@/components/ui/tooltip";
+import { UploadProgressBar } from "@/components/ui/upload-progress-bar";
 import { REASON_TYPE_OPTIONS, DirectPurchaseRequest } from "@/lib/direct-purchase-types";
 import { SaudiRiyalIcon } from "@/components/SaudiRiyalIcon";
+
+// Mirrors the direct-purchase-attachments bucket's file_size_limit in
+// supabase/migrations/20260823_direct_purchase.sql.
+const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024;
 
 interface EditDirectPurchaseModalProps {
   request: DirectPurchaseRequest;
@@ -41,9 +47,14 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
   const [deptManagerName, setDeptManagerName] = useState(request.dept_manager_name || "");
 
   // Attachments
-  const [attachments, setAttachments] = useState<Array<{ name: string; size?: number; dataUrl?: string; url?: string }>>(
-    request.attachments || []
-  );
+  // Rows already saved keep their storage `path` (or the legacy dataUrl/url of
+  // requests created before attachments moved to storage); a freshly picked
+  // file carries the `File` itself until the save uploads it.
+  const [attachments, setAttachments] = useState<
+    Array<{ name: string; size?: number; path?: string; dataUrl?: string; url?: string; file?: File }>
+  >(request.attachments || []);
+  // Upload percentage per attachment index, filled in while the save runs.
+  const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
 
   // Sync state whenever request changes or modal opens
   useEffect(() => {
@@ -65,6 +76,7 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
       setDeptManagerEmail(request.dept_manager_email || "");
       setDeptManagerName(request.dept_manager_name || "");
       setAttachments(request.attachments || []);
+      setUploadProgress({});
     }
   }, [request, isOpen]);
 
@@ -105,8 +117,8 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
-    const newFiles: Array<{ name: string; size?: number; dataUrl?: string }> = [];
+    // Held as-is until save — the upload to storage happens there.
+    const newFiles: Array<{ name: string; size: number; file: File }> = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -117,28 +129,12 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
         continue;
       }
 
-      if (file.size > MAX_SIZE) {
-        toast.error(`الملف "${file.name}" يتجاوز الحد الأقصى المسموح به (20 ميغابايت).`);
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast.error(`الملف "${file.name}" يتجاوز الحد الأقصى المسموح به (30 ميغابايت).`);
         continue;
       }
 
-      try {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        newFiles.push({
-          name: file.name,
-          size: file.size,
-          dataUrl: dataUrl,
-        });
-      } catch (readErr) {
-        console.error("Failed to read file", readErr);
-        toast.error(`تعذر قراءة محتوى الملف "${file.name}"`);
-      }
+      newFiles.push({ name: file.name, size: file.size, file });
     }
 
     if (newFiles.length > 0) {
@@ -147,6 +143,9 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
     }
     e.target.value = "";
   };
+
+  const uploadingCount = Object.keys(uploadProgress).length;
+  const completedUploads = Object.values(uploadProgress).filter((p) => p >= 100).length;
 
   const removeAttachment = (indexToRemove: number) => {
     setAttachments((prev) => prev.filter((_, idx) => idx !== indexToRemove));
@@ -183,12 +182,33 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
       return;
     }
 
+    // Kept rows go straight back into the jsonb column; newly picked files are
+    // uploaded by the hook, and anything the user dropped is deleted from
+    // storage there too.
+    const keptAttachments = attachments
+      .filter((a) => !a.file)
+      .map(({ name, size, path, dataUrl, url }) => ({ name, size, path, dataUrl, url }));
+    // Kept alongside their index in `attachments` so the hook's per-file
+    // progress can be mapped back onto the right row in the list.
+    const newAttachmentEntries = attachments
+      .map((a, idx) => ({ idx, file: a.file }))
+      .filter((entry): entry is { idx: number; file: File } => Boolean(entry.file));
+    const newAttachmentFiles = newAttachmentEntries.map((entry) => entry.file);
+    const keptPaths = new Set(keptAttachments.map((a) => a.path).filter(Boolean));
+    const removedPaths = (request.attachments || [])
+      .map((a) => a.path)
+      .filter((p): p is string => Boolean(p) && !keptPaths.has(p));
+
     try {
       await updateRequest({
         id: request.id,
+        attachmentFiles: newAttachmentFiles,
+        removedPaths,
+        onUploadProgress: (fileIndex, percent) =>
+          setUploadProgress((prev) => ({ ...prev, [newAttachmentEntries[fileIndex].idx]: percent })),
         updates: {
           request_title: requestTitle.trim(),
-          pr_number: prNumber.trim() || undefined,
+          pr_number: prNumber.trim() || null,
           department: department.trim(),
           estimated_cost: normalizedCost,
           reason_type: selectedReasons.join(","),
@@ -201,7 +221,7 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
           vendor_contact_email: vendorContactEmail.trim() || undefined,
           dept_manager_name: deptManagerName || undefined,
           dept_manager_email: deptManagerEmail.trim().toLowerCase(),
-          attachments: attachments.length > 0 ? (attachments as any) : [],
+          attachments: keptAttachments,
           status: "pending_dept_manager",
           dept_manager_approval_status: "pending",
         },
@@ -217,7 +237,8 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
 
       onClose();
     } catch (err) {
-      // handled
+      // handled — drop the half-filled bars so a retry starts clean.
+      setUploadProgress({});
     }
   };
 
@@ -290,14 +311,14 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
 
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">
-                  <span>رقم الطلب (PR)</span>
+                  <span>رقم الطلب (PR) <span className="text-[10px] font-normal text-gray-400">(اختياري)</span></span>
                   <span className="text-[10px] font-normal text-gray-400 font-mono">PR-XXXXXX</span>
                 </label>
                 <input
                   type="text"
                   value={prNumber}
                   onChange={(e) => setPrNumber(e.target.value)}
-                  placeholder="مثال: PR-1002345"
+                  placeholder="اتركه فارغاً إن لم يصدر بعد"
                   className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all font-mono"
                   dir="ltr"
                 />
@@ -482,7 +503,7 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
           {/* Section 4: Attachments */}
           <div className="space-y-4">
             <h3 className="text-sm font-black text-gray-800 flex items-center gap-2 border-b pb-2 border-gray-100">
-              <Paperclip size={16} className="text-[#C5A059]" /> المرفقات الداعمة (PDF فقط — حتى 20 ميغابايت)
+              <Paperclip size={16} className="text-[#C5A059]" /> المرفقات الداعمة (PDF فقط — حتى 30 ميغابايت)
             </h3>
 
             <div className="border-2 border-dashed border-gray-200 hover:border-[#0D4435] rounded-2xl p-6 text-center transition-colors bg-gray-50/50">
@@ -499,7 +520,7 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
                   <Paperclip size={20} />
                 </div>
                 <span className="text-xs font-black text-[#0D4435]">اضغط لرفع ملفات PDF جديدة</span>
-                <span className="text-[11px] font-bold text-gray-400">عروض الأسعار، مبررات الاحتكار، خطابات التوريد (بصيغة PDF حتى 20MB)</span>
+                <span className="text-[11px] font-bold text-gray-400">عروض الأسعار، مبررات الاحتكار، خطابات التوريد (بصيغة PDF حتى 30MB)</span>
               </label>
             </div>
 
@@ -507,27 +528,35 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
               <div className="space-y-2">
                 <p className="text-xs font-bold text-gray-600">المرفقات الحالية:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {attachments.map((file, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800">
-                      <div className="flex items-center gap-2 truncate">
-                        <FileText size={15} className="text-[#C5A059] shrink-0" />
-                        <span className="truncate">{file.name}</span>
-                        {file.size && (
-                          <span className="text-[10px] text-gray-400 font-normal">
-                            ({(file.size / (1024 * 1024)).toFixed(2)} MB)
-                          </span>
-                        )}
+                  {attachments.map((file, idx) => {
+                    const percent = uploadProgress[idx];
+                    return (
+                      <div key={idx} className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 truncate">
+                            <FileText size={15} className="text-[#C5A059] shrink-0" />
+                            <span className="truncate">{file.name}</span>
+                            {file.size && (
+                              <span className="text-[10px] text-gray-400 font-normal">
+                                ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                              </span>
+                            )}
+                          </div>
+                          <Tooltip content="حذف المرفق">
+                            <button
+                              type="button"
+                              disabled={isUpdating}
+                              onClick={() => removeAttachment(idx)}
+                              className="text-gray-400 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </Tooltip>
+                        </div>
+                        {percent !== undefined && <UploadProgressBar percent={percent} />}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(idx)}
-                        className="text-gray-400 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
-                        title="حذف المرفق"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -548,7 +577,11 @@ export function EditDirectPurchaseModal({ request, isOpen, onClose }: EditDirect
               className="h-11 px-6 bg-[#0D4435] hover:bg-[#0a3529] text-white rounded-xl font-black text-xs transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
               <Send size={15} />
-              {isUpdating ? "جارِ الحفظ والإرسال..." : "تأكيد التعديل وإعادة الإرسال للمدير"}
+              {!isUpdating
+                ? "تأكيد التعديل وإعادة الإرسال للمدير"
+                : uploadingCount > 0
+                  ? `جارِ رفع المرفقات (${completedUploads}/${uploadingCount})...`
+                  : "جارِ الحفظ والإرسال..."}
             </button>
           </div>
 

@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
 import { supabase } from "@/lib/supabase/client";
 
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+// Mirrors the vendor-attachments bucket's file_size_limit in
+// supabase/migrations/20260730_profiles_and_rls.sql.
+const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024;
 
 export const CreateEvalModal = (props: any) => {
   const {
@@ -239,7 +241,7 @@ export const CreateEvalModal = (props: any) => {
                                               return;
                                             }
                                             if (file.size > MAX_ATTACHMENT_BYTES) {
-                                              toast.error("حجم المرفق يجب ألا يتجاوز 10 ميجابايت");
+                                              toast.error("حجم المرفق يجب ألا يتجاوز 30 ميجابايت");
                                               return;
                                             }
                                             handleVendorFile(vIdx, file);

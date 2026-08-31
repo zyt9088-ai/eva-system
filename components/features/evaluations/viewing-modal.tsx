@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { formatDateTime } from "@/lib/formatters";
 import { getEvaluatorsList, calculateEvfAveragesForVendor, getFinalStatusForVendor, getSafeEvalStatus, getSafeReason, getSafeScore, getRadarData } from "@/lib/evaluation-utils";
 import { supabase } from "@/lib/supabase/client";
+import { Tooltip } from "@/components/ui/tooltip";
 import Link from "next/link";
 
 const openVendorAttachment = async (path: string) => {
@@ -215,12 +216,11 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                 <p className="text-[11px] text-gray-500 font-bold mb-1">
                                   المورد الحالي
                                 </p>
-                                <p
-                                  className="font-black text-sm text-[#222222] truncate"
-                                  title={currentVendor.name}
-                                >
-                                  {currentVendor.name}
-                                </p>
+                                <Tooltip content={currentVendor.name} className="block">
+                                  <p className="font-black text-sm text-[#222222] truncate">
+                                    {currentVendor.name}
+                                  </p>
+                                </Tooltip>
                                 {currentVendor.attachmentName && (
                                   currentVendor.attachmentPath ? (
                                     <button
@@ -425,14 +425,13 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                         {i + 1}
                                       </div>
                                       <div className="pr-5">
-                                        <p
-                                          className="text-xs font-bold text-[#222222] line-clamp-1"
-                                          // @ts-ignore
-                                          title={ev.name}
-                                        >
-                                          {/* @ts-ignore */}
-                                          {ev.name}
-                                        </p>
+                                        {/* @ts-ignore */}
+                                        <Tooltip content={ev.name} className="block">
+                                          <p className="text-xs font-bold text-[#222222] line-clamp-1">
+                                            {/* @ts-ignore */}
+                                            {ev.name}
+                                          </p>
+                                        </Tooltip>
                                         <p
                                           className={`text-[10px] font-bold mt-1 ${hasEvaluated ? "text-green-600" : "text-orange-500"}`}
                                         >
@@ -596,12 +595,11 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                           {itemIndex + 1}
                                         </div>
 
-                                        <h5
-                                          className="font-bold text-[#222222] text-sm mb-4 pl-2 pr-6 leading-relaxed"
-                                          title={item}
-                                        >
-                                          {item}
-                                        </h5>
+                                        <Tooltip content={item} className="block">
+                                          <h5 className="font-bold text-[#222222] text-sm mb-4 pl-2 pr-6 leading-relaxed">
+                                            {item}
+                                          </h5>
+                                        </Tooltip>
 
                                         <div className="flex-1">
                                           <p className="text-[11px] font-bold text-gray-500 mb-2.5">
@@ -621,14 +619,15 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                                   <div
                                                     key={evIdx}
                                                     className="flex flex-col gap-1 bg-white border border-gray-200 shadow-sm rounded-lg px-3 py-2"
-                                                    // @ts-ignore
-                                                    title={ev.name}
                                                   >
                                                     <div className="flex items-center gap-2">
-                                                      <span className="text-[10px] text-[#0D4435] font-bold max-w-[60px] truncate">
-                                                        {/* @ts-ignore */}
-                                                        {ev.name.split(" ")[0]}
-                                                      </span>
+                                                      {/* @ts-ignore */}
+                                                      <Tooltip content={ev.name}>
+                                                        <span className="text-[10px] text-[#0D4435] font-bold max-w-[60px] truncate">
+                                                          {/* @ts-ignore */}
+                                                          {ev.name.split(" ")[0]}
+                                                        </span>
+                                                      </Tooltip>
                                                       {st ? (
                                                         <span
                                                           className={`w-2 h-2 rounded-full ${st.status === "YES" ? "bg-green-500" : "bg-red-500"}`}
@@ -639,12 +638,11 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                                     </div>
                                                     {st?.status === "NO" &&
                                                       st.reason && (
-                                                        <p
-                                                          className="text-[9px] text-red-600 font-bold bg-red-50 p-1 rounded max-w-[150px] truncate"
-                                                          title={st.reason}
-                                                        >
-                                                          {st.reason}
-                                                        </p>
+                                                        <Tooltip content={st.reason} className="block">
+                                                          <p className="text-[9px] text-red-600 font-bold bg-red-50 p-1 rounded max-w-[150px] truncate">
+                                                            {st.reason}
+                                                          </p>
+                                                        </Tooltip>
                                                       )}
                                                   </div>
                                                 );
@@ -689,12 +687,11 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
 
                                         <div className="p-4 flex-1 flex flex-col sm:flex-row gap-6">
                                           <div className="flex-1">
-                                            <h5
-                                              className="font-bold text-[#222222] text-sm mb-3 pl-2 pr-6 leading-relaxed"
-                                              title={crit.title}
-                                            >
-                                              {crit.title}
-                                            </h5>
+                                            <Tooltip content={crit.title} className="block">
+                                              <h5 className="font-bold text-[#222222] text-sm mb-3 pl-2 pr-6 leading-relaxed">
+                                                {crit.title}
+                                              </h5>
+                                            </Tooltip>
                                             <div className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm">
                                               <span className="text-[10px] text-gray-600 font-bold">
                                                 الوزن:
@@ -731,14 +728,15 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                                   <div
                                                     key={evalIndex}
                                                     className="flex flex-col gap-1 bg-white border border-gray-200 shadow-sm rounded-lg px-2 py-1.5"
-                                                    // @ts-ignore
-                                                    title={ev.name}
                                                   >
                                                     <div className="flex justify-between items-center">
-                                                      <span className="text-[10px] text-gray-600 font-bold truncate mr-1">
-                                                        {/* @ts-ignore */}
-                                                        {ev.name.split(" ")[0]}
-                                                      </span>
+                                                      {/* @ts-ignore */}
+                                                      <Tooltip content={ev.name} className="min-w-0">
+                                                        <span className="text-[10px] text-gray-600 font-bold truncate mr-1">
+                                                          {/* @ts-ignore */}
+                                                          {ev.name.split(" ")[0]}
+                                                        </span>
+                                                      </Tooltip>
                                                       <span
                                                         className={`text-[11px] font-black ${score !== undefined ? "text-[#0D4435]" : "text-gray-300"}`}
                                                       >
@@ -748,12 +746,11 @@ export const ViewingModal = ({ viewingEval, onClose }: any) => {
                                                       </span>
                                                     </div>
                                                     {reason && (
-                                                      <p
-                                                        className="text-[9px] text-red-600 font-bold bg-red-50 p-1 rounded mt-1 truncate"
-                                                        title={reason}
-                                                      >
-                                                        {reason}
-                                                      </p>
+                                                      <Tooltip content={reason} className="block">
+                                                        <p className="text-[9px] text-red-600 font-bold bg-red-50 p-1 rounded mt-1 truncate">
+                                                          {reason}
+                                                        </p>
+                                                      </Tooltip>
                                                     )}
                                                   </div>
                                                 );
