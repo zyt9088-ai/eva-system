@@ -23,14 +23,39 @@ export interface Evaluation {
   date?: string;
 }
 
-const notifyEvaluators = (evaluationId: string) => {
-  fetch("/api/notify-evaluators", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ evaluationId }),
-  }).catch(() => {
-    // Email delivery is best-effort — never block the evaluation save on it.
-  });
+// Email delivery is best-effort — it never blocks the evaluation save — but a
+// failure has to be visible. Resend answers a rejected send with `{ error }`
+// rather than throwing, so silently ignoring the response used to leave the
+// evaluators uninformed with nobody aware of it.
+const notifyEvaluators = async (evaluationId: string) => {
+  try {
+    const res = await fetch("/api/notify-evaluators", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ evaluationId }),
+    });
+    const body = await res.json().catch(() => ({}));
+
+    if (!res.ok || body?.success === false) {
+      const failedAddresses = (body?.failures || [])
+        .map((f: { email: string }) => f.email)
+        .join("، ");
+      console.warn("Evaluator notification problem:", body);
+      toast.warning(
+        failedAddresses
+          ? `تعذّر إرسال الإشعار إلى: ${failedAddresses}`
+          : body?.error || "تعذّر إرسال الإشعار للمقيّمين — راجع إعدادات البريد"
+      );
+      return;
+    }
+
+    if (body?.sent > 0) {
+      toast.success(`تم إرسال إشعار التقييم إلى ${body.sent} مقيّم`);
+    }
+  } catch (err) {
+    console.warn("Failed to trigger evaluator notification:", err);
+    toast.warning("تعذّر الاتصال بخدمة البريد لإرسال إشعار المقيّمين");
+  }
 };
 
 const VENDOR_ATTACHMENTS_BUCKET = "vendor-attachments";
@@ -157,9 +182,11 @@ export function useEvaluations() {
       // 2. Insert Vendors (+ upload any attached PDFs)
       await insertVendorsWithAttachments(evalId, newEval.vendors);
 
-      // 3. Insert Evaluators
+      // 3. Insert Evaluators — the error must be checked: an unnoticed failure
+      // here saves the request with nobody assigned to it, so no notification
+      // goes out and the task never appears in anyone's /my-tasks.
       if (newEval.evaluators?.length > 0) {
-        await supabase.from("evaluators").insert(
+        const { error: evaluatorsError } = await supabase.from("evaluators").insert(
           newEval.evaluators.map((e) => ({
             evaluation_id: evalId,
             name: e.name,
@@ -167,6 +194,7 @@ export function useEvaluations() {
             is_pm: e.isPM || false,
           }))
         );
+        if (evaluatorsError) throw evaluatorsError;
       }
 
       // 4. Insert Criteria / Items
@@ -307,10 +335,25 @@ export function useEvaluations() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ evaluationId }),
       });
-      if (!res.ok) throw new Error("remind failed");
+      const body = await res.json().catch(() => ({}));
+
+      // A 200 here doesn't mean the mail went out — the body carries the real
+      // per-recipient outcome.
+      if (!res.ok || body?.success === false) {
+        const failedAddresses = (body?.failures || [])
+          .map((f: { email: string }) => f.email)
+          .join("، ");
+        throw new Error(
+          failedAddresses
+            ? `تعذّر الإرسال إلى: ${failedAddresses}`
+            : body?.error || "تعذّر إرسال التذكير"
+        );
+      }
+      return body as { sent: number };
     },
-    onSuccess: () => toast.success("تم إرسال تذكير بالبريد للمقيّمين"),
-    onError: () => toast.error("تعذّر إرسال التذكير — تأكد من إعداد البريد الإلكتروني"),
+    onSuccess: (body) => toast.success(`تم إرسال تذكير بالبريد إلى ${body?.sent ?? 0} مقيّم`),
+    onError: (error: Error) =>
+      toast.error(error?.message || "تعذّر إرسال التذكير — تأكد من إعداد البريد الإلكتروني"),
   });
 
   return {

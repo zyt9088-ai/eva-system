@@ -22,10 +22,16 @@ export async function POST(request: NextRequest) {
 
     if (!resend) {
       console.warn("Resend API key is not configured. Skipping email notification.");
-      return NextResponse.json({ success: true, warning: "Resend not configured" });
+      return NextResponse.json({
+        success: false,
+        message: "خدمة البريد غير مهيأة على الخادم (RESEND_API_KEY مفقود)",
+      });
     }
 
-    const origin = request.nextUrl.origin || process.env.NEXT_PUBLIC_SITE_URL || "https://eva-system.mngdp.com";
+    // Always build the link from the public site URL when it's configured —
+    // otherwise a notification triggered while testing locally reaches the
+    // approver with a `localhost` link they can't open.
+    const origin = (process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin).replace(/\/+$/, "");
     // Committee recipients are being asked to work on the minutes themselves,
     // so send them straight to the minutes sheet rather than the overview.
     const goesToMinutes =

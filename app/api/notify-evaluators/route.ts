@@ -4,7 +4,10 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   if (!resend) {
-    return NextResponse.json({ error: "Resend is not configured" }, { status: 503 });
+    return NextResponse.json(
+      { success: false, error: "خدمة البريد غير مهيأة على الخادم (RESEND_API_KEY مفقود)" },
+      { status: 503 }
+    );
   }
 
   const { evaluationId } = await request.json();
@@ -22,9 +25,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Evaluation not found" }, { status: 404 });
   }
 
-  const origin = request.nextUrl.origin;
+  // Always build the link from the public site URL when it's configured —
+  // otherwise a notification triggered while testing locally reaches the
+  // evaluator with a `localhost` link they can't open.
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin).replace(/\/+$/, "");
   const link = `${origin}/eval/${evaluationId}`;
-  const evaluators = (evaluation.evaluators || []).filter((e: { email: string }) => e.email);
+
+  const allEvaluators = evaluation.evaluators || [];
+  const evaluators = allEvaluators.filter((e: { email: string }) => e.email?.trim());
+  const missingEmail = allEvaluators.length - evaluators.length;
+
+  if (evaluators.length === 0) {
+    return NextResponse.json(
+      {
+        success: false,
+        sent: 0,
+        total: 0,
+        error:
+          allEvaluators.length === 0
+            ? "لا يوجد مقيّمون مسجّلون على هذا الطلب"
+            : "لا يوجد بريد إلكتروني مسجّل لأي من المقيّمين",
+      },
+      { status: 200 }
+    );
+  }
 
   const results = await Promise.allSettled(
     evaluators.map((evaluator: { name: string; email: string }) =>
@@ -80,6 +104,35 @@ export async function POST(request: NextRequest) {
     )
   );
 
-  const sent = results.filter((r) => r.status === "fulfilled").length;
-  return NextResponse.json({ sent, total: evaluators.length });
+  // resend.emails.send() resolves with { data, error } instead of throwing, so
+  // `allSettled` reports a rejected send as "fulfilled". Every result has to be
+  // inspected, otherwise a request where nothing was delivered still reports a
+  // full success and the evaluators are never chased.
+  const failures: Array<{ email: string; reason: string }> = [];
+
+  results.forEach((result, index) => {
+    const email = evaluators[index].email;
+    if (result.status === "rejected") {
+      failures.push({ email, reason: String(result.reason?.message || result.reason) });
+      return;
+    }
+    const error = (result.value as { error?: { message?: string } })?.error;
+    if (error) {
+      failures.push({ email, reason: error.message || "رفض الإرسال" });
+    }
+  });
+
+  const sent = evaluators.length - failures.length;
+
+  if (failures.length > 0) {
+    console.error("Resend rejected evaluator notifications:", failures);
+  }
+
+  return NextResponse.json({
+    success: failures.length === 0,
+    sent,
+    total: evaluators.length,
+    missingEmail,
+    failures,
+  });
 }
