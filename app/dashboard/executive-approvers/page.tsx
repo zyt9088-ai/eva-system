@@ -208,7 +208,7 @@ export default function ExecutiveApproversPage() {
                 <tr>
                   <th className="py-3 px-3 font-black text-gray-500">الاسم</th>
                   <th className="py-3 px-3 font-black text-gray-500">البريد الإلكتروني</th>
-                  <th className="py-3 px-3 font-black text-gray-500 w-44">الصفة</th>
+                  <th className="py-3 px-3 font-black text-gray-500 w-52">الصفة</th>
                   <th className="py-3 px-3 font-black text-gray-500 w-32 text-center">المعتمد الحالي</th>
                   <th className="py-3 px-3 font-black text-gray-500 w-14 text-center">حذف</th>
                 </tr>
@@ -231,12 +231,17 @@ export default function ExecutiveApproversPage() {
                       {x.email}
                     </td>
                     <td className="py-3 px-3">
+                      {/* The shared dropdown pins its trigger at text-sm and
+                          clips the label rather than truncating it, so
+                          "نائب المدير العام التنفيذي" was cut mid-word in a
+                          table cell. Scale the trigger down here instead of
+                          changing the component every other screen uses. */}
                       <ModernDropdown
                         value={x.role}
                         options={EXECUTIVE_ROLE_OPTIONS}
                         onChange={(val) => handleChangeRole(x.id, val)}
                         placeholder="اختر الصفة"
-                        className="w-full"
+                        className="w-full [&>button]:text-[11px] [&>button]:min-h-[38px] [&>button]:px-2.5"
                       />
                     </td>
                     <td className="py-3 px-3 text-center">
