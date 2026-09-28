@@ -201,12 +201,13 @@ export default function ExecutiveApproversPage() {
               لا يوجد معتمدون مضافون بعد — لن يتمكن أي طلب من تجاوز مرحلة الاعتماد النهائي
             </div>
           ) : (
-            <table className="w-full text-sm text-right">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm text-right min-w-[720px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="py-3.5 px-5 font-black text-gray-500">الاسم</th>
                   <th className="py-3.5 px-5 font-black text-gray-500">البريد الإلكتروني</th>
-                  <th className="py-3.5 px-5 font-black text-gray-500 w-56">الصفة</th>
+                  <th className="py-3.5 px-5 font-black text-gray-500 w-52">الصفة</th>
                   <th className="py-3.5 px-5 font-black text-gray-500 w-40 text-center">المعتمد الحالي</th>
                   <th className="py-3.5 px-5 font-black text-gray-500 w-20 text-center">حذف</th>
                 </tr>
@@ -219,13 +220,13 @@ export default function ExecutiveApproversPage() {
                       x.is_active_approver ? "bg-emerald-50/40" : "hover:bg-gray-50/50"
                     }`}
                   >
-                    <td className="py-4 px-5 font-black text-gray-800">
+                    <td className="py-4 px-5 font-black text-gray-800 whitespace-nowrap">
                       <span className="flex items-center gap-2">
                         <UserCheck size={16} className="text-[#0D4435]" />
                         {x.name}
                       </span>
                     </td>
-                    <td className="py-4 px-5 font-bold text-gray-600" dir="ltr">
+                    <td className="py-4 px-5 font-bold text-gray-600 whitespace-nowrap" dir="ltr">
                       {x.email}
                     </td>
                     <td className="py-4 px-5">
@@ -267,6 +268,7 @@ export default function ExecutiveApproversPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 
