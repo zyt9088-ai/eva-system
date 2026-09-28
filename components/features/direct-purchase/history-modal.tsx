@@ -86,7 +86,29 @@ const buildTimeline = (req: DirectPurchaseRequest): TimelineEvent[] => {
     });
   }
 
-  if (req.admin_approval_date) {
+  if (req.executive_approval_date) {
+    events.push({
+      date: req.executive_approval_date,
+      action:
+        req.executive_decision === "rejected"
+          ? "عدم اعتماد المدير العام التنفيذي"
+          : "اعتماد المدير العام التنفيذي",
+      user: req.executive_approver_name || "المدير العام التنفيذي",
+      isDecision: true,
+    });
+  }
+
+  if (req.closure_date) {
+    events.push({
+      date: req.closure_date,
+      action: "إقفال الطلب واكتمال الدورة المستندية",
+      user: req.closed_by_name || "مدير المشتريات والعقود",
+      isDecision: true,
+    });
+  }
+
+  // Requests approved before the executive stage existed only carry this date.
+  if (req.admin_approval_date && !req.executive_approval_date && !req.closure_date) {
     events.push({
       date: req.admin_approval_date,
       action: "الاعتماد النهائي من مدير المشتريات",

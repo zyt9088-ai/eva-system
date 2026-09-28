@@ -82,7 +82,10 @@ export default function DirectPurchaseDashboardPage() {
     filteredRequests = filteredRequests.filter((r) => {
       if (filterStatus === "PENDING_DEPT") return r.status === "pending_dept_manager";
       if (filterStatus === "SPECIALIST") return r.status === "pending_procurement_assign" || r.status === "pending_specialist_review";
-      if (filterStatus === "COMMITTEE") return r.status === "pending_committee_secretary" || r.status === "pending_committee_approval" || r.status === "pending_admin_approval";
+      if (filterStatus === "COMMITTEE") return r.status === "pending_committee_secretary" || r.status === "pending_committee_approval";
+      // 'pending_admin_approval' is the retired status — it now means the same
+      // thing as waiting on the executive director.
+      if (filterStatus === "EXECUTIVE") return r.status === "pending_executive_approval" || r.status === "pending_admin_approval" || r.status === "pending_closure";
       if (filterStatus === "APPROVED") return r.status === "approved";
       if (filterStatus === "REJECTED") return r.status === "rejected" || r.status === "dept_manager_rejected" || r.status === "closed_by_specialist";
       return true;
@@ -195,7 +198,8 @@ export default function DirectPurchaseDashboardPage() {
               { key: "ALL", label: "عرض الكل" },
               { key: "PENDING_DEPT", label: "موافقة الإدارة" },
               { key: "SPECIALIST", label: "دراسة المشتريات" },
-              { key: "COMMITTEE", label: "اللجنة / الاعتماد" },
+              { key: "COMMITTEE", label: "اللجنة" },
+              { key: "EXECUTIVE", label: "الاعتماد والإقفال" },
               { key: "APPROVED", label: "معتمد" },
               { key: "REJECTED", label: "مرفوض" },
             ].map((tab) => (

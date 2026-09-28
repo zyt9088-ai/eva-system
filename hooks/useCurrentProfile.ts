@@ -7,7 +7,7 @@ export interface CurrentProfile {
   id: string;
   email: string;
   fullName: string | null;
-  role: "admin" | "specialist" | "employee";
+  role: "admin" | "specialist" | "employee" | "executive";
 }
 
 export function useCurrentProfile() {
@@ -41,5 +41,9 @@ export function useCurrentProfile() {
     profile: data ?? null,
     isLoading,
     isAdmin: data?.role === "admin",
+    // Holds the executive-director role. Whether this particular person is the
+    // one who signs right now is a separate question — the standing approver is
+    // the active row in direct_purchase_executives (see useDirectPurchase).
+    isExecutive: data?.role === "executive",
   };
 }

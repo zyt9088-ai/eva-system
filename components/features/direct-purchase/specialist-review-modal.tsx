@@ -100,7 +100,9 @@ export function SpecialistReviewModal({ request, isOpen, onClose }: SpecialistRe
       return;
     }
 
-    const nextStatus = isHighValue ? "pending_committee_secretary" : "pending_admin_approval";
+    // Below the committee threshold the file goes straight to the executive
+    // director for signature — مدير المشتريات no longer holds an approval step.
+    const nextStatus = isHighValue ? "pending_committee_secretary" : "pending_executive_approval";
 
     try {
       await updateRequest({
@@ -119,7 +121,8 @@ export function SpecialistReviewModal({ request, isOpen, onClose }: SpecialistRe
         toast.success("تم إكمال المراجعة وتحويل الطلب إلى أمين لجنة الشراء المباشر");
         notifyDirectPurchase(request.id, "referred_to_committee");
       } else {
-        toast.success("تم إكمال المراجعة وتحويل الطلب إلى مدير المشتريات للاعتماد النهائي");
+        toast.success("تم إكمال المراجعة وتحويل الطلب إلى المدير العام التنفيذي للاعتماد");
+        notifyDirectPurchase(request.id, "executive_approval_requested");
       }
 
       onClose();

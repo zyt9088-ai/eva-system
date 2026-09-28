@@ -27,6 +27,64 @@ drop policy if exists "admin manages committee" on public.direct_purchase_commit
 create policy "admin manages committee" on public.direct_purchase_committee
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+-- 1b. Executive Approvers Master Table (المدير العام التنفيذي ونوابه) ----------
+-- The final approval no longer sits with مدير المشتريات: every request — whether
+-- it went to the committee or not — ends with the executive director signing
+-- it, and مدير المشتريات closes it afterwards. This roster works exactly like
+-- the committee table above, and must be declared before the request policies
+-- in section 2, which reference it.
+create table if not exists public.direct_purchase_executives (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null unique,
+  role text not null default 'executive',
+  -- Exactly one row carries this at a time (see the trigger below), so a
+  -- deputy can stand in while the director is away without two people holding
+  -- the signature at once.
+  is_active_approver boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.direct_purchase_executives
+  add column if not exists is_active_approver boolean not null default false;
+
+alter table public.direct_purchase_executives drop constraint if exists direct_purchase_executives_role_check;
+alter table public.direct_purchase_executives add constraint direct_purchase_executives_role_check
+  check (role in ('executive', 'vice_executive'));
+
+alter table public.direct_purchase_executives enable row level security;
+
+drop policy if exists "authenticated can read executives" on public.direct_purchase_executives;
+create policy "authenticated can read executives" on public.direct_purchase_executives
+  for select to authenticated using (true);
+
+drop policy if exists "admin manages executives" on public.direct_purchase_executives;
+create policy "admin manages executives" on public.direct_purchase_executives
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- Flipping the flag on one row clears it everywhere else, so the notification
+-- and the approve button always have exactly one owner. The cascading update
+-- only ever sets the flag to false, so the trigger doesn't re-fire into a loop.
+create or replace function public.enforce_single_active_executive()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if new.is_active_approver then
+    update public.direct_purchase_executives
+      set is_active_approver = false
+      where id <> new.id and is_active_approver;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_single_active_executive on public.direct_purchase_executives;
+create trigger enforce_single_active_executive
+  after insert or update of is_active_approver on public.direct_purchase_executives
+  for each row execute function public.enforce_single_active_executive();
+
 -- 2. Direct Purchase Requests Table (طلبات مبرر الشراء المباشر)
 create table if not exists public.direct_purchase_requests (
   id uuid primary key default gen_random_uuid(),
@@ -99,6 +157,12 @@ create policy "direct purchase select policy" on public.direct_purchase_requests
     or exists (
       select 1 from jsonb_array_elements(committee_attendees) as att
       where att->>'email' = (select email from public.profiles where id = auth.uid())
+    )
+    -- The executive director (and their deputies) sign the final approval, so
+    -- they must be able to open any request — see section 5.
+    or exists (
+      select 1 from public.direct_purchase_executives x
+      where x.email = (select email from public.profiles where id = auth.uid())
     )
   );
 
@@ -177,3 +241,32 @@ create policy "owner can delete direct purchase attachments" on storage.objects
 alter table public.direct_purchase_requests add column if not exists committee_minutes_number text;
 alter table public.direct_purchase_requests add column if not exists committee_meeting_date date;
 alter table public.direct_purchase_requests add column if not exists committee_meeting_place text;
+
+-- 5. Executive approval + closure (اعتماد المدير العام التنفيذي ثم الإقفال) -----
+-- Two stages were appended to the end of every route. The executive director
+-- (or the standing deputy — see section 1b) reviews the whole file and signs
+-- it; مدير المشتريات then closes the request. Both signatures are reproduced in
+-- the printed report, so each one records who signed, in what capacity and when.
+alter table public.direct_purchase_requests add column if not exists executive_approver_name text;
+alter table public.direct_purchase_requests add column if not exists executive_approver_email text;
+alter table public.direct_purchase_requests add column if not exists executive_approver_role text;
+alter table public.direct_purchase_requests add column if not exists executive_decision text;
+alter table public.direct_purchase_requests add column if not exists executive_approval_date timestamptz;
+alter table public.direct_purchase_requests add column if not exists executive_declaration text;
+alter table public.direct_purchase_requests add column if not exists executive_notes text;
+
+alter table public.direct_purchase_requests add column if not exists closed_by_name text;
+alter table public.direct_purchase_requests add column if not exists closed_by_email text;
+alter table public.direct_purchase_requests add column if not exists closure_date timestamptz;
+alter table public.direct_purchase_requests add column if not exists closure_notes text;
+
+alter table public.direct_purchase_requests drop constraint if exists direct_purchase_requests_executive_decision_check;
+alter table public.direct_purchase_requests add constraint direct_purchase_requests_executive_decision_check
+  check (executive_decision is null or executive_decision in ('approved', 'rejected'));
+
+-- 'pending_admin_approval' is retired: مدير المشتريات no longer signs the final
+-- approval. Anything still parked there moves to the executive's queue. Safe to
+-- re-run — after the first pass no row matches.
+update public.direct_purchase_requests
+  set status = 'pending_executive_approval'
+  where status = 'pending_admin_approval';

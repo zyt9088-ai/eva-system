@@ -46,6 +46,27 @@ export const isSecretaryRole = (role?: string): boolean => {
   return role.includes("أمين");
 };
 
+/** المدير العام التنفيذي ونوابه — the roster that signs the final approval. */
+export interface ExecutiveApprover {
+  id: string;
+  name: string;
+  email: string;
+  role: 'executive' | 'vice_executive';
+  /** Exactly one roster row carries this; the DB trigger enforces it. */
+  is_active_approver: boolean;
+  created_at?: string;
+}
+
+export const EXECUTIVE_ROLE_LABELS: Record<string, string> = {
+  executive: "المدير العام التنفيذي",
+  vice_executive: "نائب المدير العام التنفيذي",
+};
+
+export const EXECUTIVE_ROLE_OPTIONS = [
+  { value: "executive", label: "المدير العام التنفيذي" },
+  { value: "vice_executive", label: "نائب المدير العام التنفيذي" },
+];
+
 export const REASON_TYPE_OPTIONS = [
   { value: "service_continuation", label: "استمرار خدمة" },
   { value: "single_source", label: "مورد واحد" },
@@ -117,12 +138,29 @@ export const STATUS_CONFIG: Record<
     border: "border-gray-300",
     stepIndex: 2,
   },
+  // Retired: مدير المشتريات no longer signs the final approval. Kept so any row
+  // that predates the migration in 20260823_direct_purchase.sql still renders a
+  // label instead of a raw status key.
   pending_admin_approval: {
     label: "بانتظار اعتماد مدير المشتريات",
     bg: "bg-indigo-50",
     text: "text-indigo-700",
     border: "border-indigo-200",
     stepIndex: 3,
+  },
+  pending_executive_approval: {
+    label: "بانتظار اعتماد المدير العام التنفيذي",
+    bg: "bg-indigo-50",
+    text: "text-indigo-700",
+    border: "border-indigo-200",
+    stepIndex: 5,
+  },
+  pending_closure: {
+    label: "بانتظار إقفال مدير المشتريات",
+    bg: "bg-teal-50",
+    text: "text-teal-700",
+    border: "border-teal-200",
+    stepIndex: 6,
   },
   pending_committee_secretary: {
     label: "بانتظار إعداد محضر اللجنة",
@@ -139,18 +177,18 @@ export const STATUS_CONFIG: Record<
     stepIndex: 3,
   },
   approved: {
-    label: "معتمد نهائياً",
+    label: "معتمد ومقفل",
     bg: "bg-emerald-50",
     text: "text-emerald-700",
     border: "border-emerald-200",
-    stepIndex: 4,
+    stepIndex: 6,
   },
   rejected: {
     label: "مرفوض نهائياً",
     bg: "bg-red-50",
     text: "text-red-700",
     border: "border-red-200",
-    stepIndex: 4,
+    stepIndex: 6,
   },
 };
 
@@ -280,6 +318,21 @@ export interface DirectPurchaseRequest {
   committee_minutes_number?: string | null;
   committee_meeting_date?: string | null;
   committee_meeting_place?: string | null;
+
+  // Executive director — the final signature on every route
+  executive_approver_name?: string;
+  executive_approver_email?: string;
+  executive_approver_role?: string;
+  executive_decision?: 'approved' | 'rejected';
+  executive_approval_date?: string;
+  executive_declaration?: string;
+  executive_notes?: string;
+
+  // Closure by مدير المشتريات, after the executive has signed
+  closed_by_name?: string;
+  closed_by_email?: string;
+  closure_date?: string;
+  closure_notes?: string;
 
   // Overall status
   status: string;

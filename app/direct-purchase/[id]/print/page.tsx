@@ -11,7 +11,7 @@ import { useDirectPurchase } from "@/hooks/useDirectPurchase";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { 
   STATUS_CONFIG, SPECIALIST_CHECKLIST_SECTIONS, 
-  COMMITTEE_ROLE_LABELS, getReasonLabels 
+  COMMITTEE_ROLE_LABELS, EXECUTIVE_ROLE_LABELS, getReasonLabels
 } from "@/lib/direct-purchase-types";
 import { SaudiRiyalIcon } from "@/components/SaudiRiyalIcon";
 
@@ -35,7 +35,9 @@ export default function DirectPurchasePrintPage({ params }: { params: Promise<{ 
     );
   }
 
-  const isFinalApproved = request.status === "approved" || !!request.admin_approval_date;
+  // Closure is the only thing that marks the cycle complete now. admin_approval_date
+  // is no longer proof of it — it is also stamped when مدير المشتريات returns a request.
+  const isFinalApproved = request.status === "approved";
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] pb-16 print:py-0 print:bg-white font-sans text-right" dir="rtl">
@@ -414,7 +416,70 @@ export default function DirectPurchasePrintPage({ params }: { params: Promise<{ 
         )}
 
         {/* ========================================================================= */}
-        {/* Section 4: Final Procurement Approval Stamp */}
+        {/* Section 4: Executive Director's Approval */}
+        {/* ========================================================================= */}
+        {!!request.executive_approval_date && (
+          <div className="avoid-break space-y-3 p-5 bg-white rounded-2xl border-2 border-[#0D4435]/25 shadow-xs">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+              <ShieldCheck size={16} className="text-[#C5A059]" />
+              <h3 className="text-sm font-black text-[#0D4435]">
+                اعتماد المدير العام التنفيذي
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px]">
+              <div className="p-3 border border-gray-200 rounded-xl bg-gray-50/80">
+                <p className="text-[10px] font-bold text-gray-400 mb-0.5">المعتمد</p>
+                <p className="font-black text-gray-900">{request.executive_approver_name || "—"}</p>
+              </div>
+              <div className="p-3 border border-gray-200 rounded-xl bg-gray-50/80">
+                <p className="text-[10px] font-bold text-gray-400 mb-0.5">الصفة</p>
+                <p className="font-black text-[#0D4435]">
+                  {request.executive_approver_role
+                    ? EXECUTIVE_ROLE_LABELS[request.executive_approver_role] ||
+                      request.executive_approver_role
+                    : "المدير العام التنفيذي"}
+                </p>
+              </div>
+              <div className="p-3 border border-gray-200 rounded-xl bg-gray-50/80">
+                <p className="text-[10px] font-bold text-gray-400 mb-0.5">تاريخ الاعتماد</p>
+                <p className="font-black text-gray-900 font-mono">
+                  {new Date(request.executive_approval_date).toLocaleDateString("ar-SA")}
+                </p>
+              </div>
+            </div>
+
+            <div
+              className={`p-3 rounded-xl border text-[11px] font-black ${
+                request.executive_decision === "rejected"
+                  ? "bg-red-50 border-red-200 text-red-800"
+                  : "bg-emerald-50 border-emerald-200 text-emerald-800"
+              }`}
+            >
+              القرار:{" "}
+              {request.executive_decision === "rejected"
+                ? "عدم اعتماد الطلب"
+                : "الموافقة والاعتماد على الشراء المباشر"}
+            </div>
+
+            {request.executive_declaration && (
+              <div className="text-[11px] leading-relaxed">
+                <span className="font-black text-gray-800">نص الإقرار: </span>
+                <span className="font-bold text-gray-700">{request.executive_declaration}</span>
+              </div>
+            )}
+
+            {request.executive_notes && (
+              <div className="text-[11px] leading-relaxed">
+                <span className="font-black text-gray-800">الملاحظات والتوجيهات: </span>
+                <span className="font-bold text-gray-700">{request.executive_notes}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* Section 5: Closure Stamp — مدير المشتريات ends the cycle */}
         {/* ========================================================================= */}
         {isFinalApproved && (
           <div className="avoid-break p-4 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 rounded-2xl border-2 border-emerald-600/30 text-xs flex justify-between items-center shadow-xs">
@@ -423,16 +488,33 @@ export default function DirectPurchasePrintPage({ params }: { params: Promise<{ 
                 <Award size={22} />
               </div>
               <div>
-                <h4 className="text-sm font-black text-[#0D4435]">الاعتماد النهائي والمصادقة النظامية</h4>
-                <p className="text-[11px] font-bold text-gray-600">تم اعتماد مسوغات ومحضر الشراء المباشر نهائياً واكتمال الدورة المستندية.</p>
+                <h4 className="text-sm font-black text-[#0D4435]">إقفال الطلب واكتمال الدورة المستندية</h4>
+                <p className="text-[11px] font-bold text-gray-600">
+                  {request.closed_by_name
+                    ? `أقفل الطلب ${request.closed_by_name} بصفته مدير المشتريات والعقود بعد اعتماد المدير العام التنفيذي.`
+                    : "اكتملت الدورة المستندية لمسوغات الشراء المباشر."}
+                </p>
+                {request.closure_notes && (
+                  <p className="text-[11px] font-bold text-emerald-800 mt-0.5">
+                    ملاحظات الإقفال: {request.closure_notes}
+                  </p>
+                )}
                 {request.admin_notes && (
-                  <p className="text-[11px] font-bold text-emerald-800 mt-0.5">توجيه الإدارة: {request.admin_notes}</p>
+                  <p className="text-[11px] font-bold text-emerald-800 mt-0.5 whitespace-pre-line">
+                    توجيهات الإدارة: {request.admin_notes}
+                  </p>
                 )}
               </div>
             </div>
             <div className="text-left font-mono text-[11px] font-black text-[#0D4435] shrink-0 border-r-2 border-gray-200 pr-4">
-              <p className="text-gray-400 text-[10px]">تاريخ الاعتماد النهائي</p>
-              <p>{request.admin_approval_date ? new Date(request.admin_approval_date).toLocaleDateString("ar-SA") : new Date().toLocaleDateString("ar-SA")}</p>
+              <p className="text-gray-400 text-[10px]">تاريخ الإقفال</p>
+              <p>
+                {request.closure_date
+                  ? new Date(request.closure_date).toLocaleDateString("ar-SA")
+                  : request.admin_approval_date
+                    ? new Date(request.admin_approval_date).toLocaleDateString("ar-SA")
+                    : new Date().toLocaleDateString("ar-SA")}
+              </p>
             </div>
           </div>
         )}

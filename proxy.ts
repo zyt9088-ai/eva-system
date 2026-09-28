@@ -52,8 +52,13 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/no-access", request.url));
     }
 
-    if (isStaffRoute && profile.role === "employee") {
-      return NextResponse.redirect(new URL("/my-tasks", request.url));
+    // Staff screens belong to procurement only. An `executive` signs direct
+    // purchase requests and has no business on the evaluation dashboard, so
+    // they're bounced to the module they actually work in rather than to
+    // /my-tasks, which is where an employee's own tasks live.
+    if (isStaffRoute && profile.role !== "admin" && profile.role !== "specialist") {
+      const fallback = profile.role === "executive" ? "/direct-purchase" : "/my-tasks";
+      return NextResponse.redirect(new URL(fallback, request.url));
     }
   }
 

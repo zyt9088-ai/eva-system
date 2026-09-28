@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
-import { DirectPurchaseRequest, CommitteeMember } from "@/lib/direct-purchase-types";
+import { DirectPurchaseRequest, CommitteeMember, ExecutiveApprover } from "@/lib/direct-purchase-types";
 import { uploadFileWithProgress } from "@/lib/supabase/upload-with-progress";
 import { notifyDirectPurchase } from "@/lib/direct-purchase-notify";
 import { toast } from "sonner";
@@ -65,6 +65,35 @@ export function useDirectPurchase() {
       return data || [];
     },
   });
+
+  // 1b. Fetch the executive approver roster (المدير العام التنفيذي ونوابه)
+  const { data: executives = [], isLoading: isExecutivesLoading } = useQuery<ExecutiveApprover[]>({
+    queryKey: ["direct-purchase-executives"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("direct_purchase_executives")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) {
+        console.warn("Could not fetch executives:", error.message);
+        return [];
+      }
+      return (data || []) as ExecutiveApprover[];
+    },
+  });
+
+  // Whoever currently holds the signature. The DB trigger keeps exactly one row
+  // flagged; falling back to the director themself covers a roster that was
+  // filled in before anyone set the flag.
+  const activeExecutive =
+    executives.find((x) => x.is_active_approver) ||
+    executives.find((x) => x.role === "executive") ||
+    null;
+
+  const isActiveExecutiveApprover =
+    !!profile?.email &&
+    !!activeExecutive &&
+    activeExecutive.email.toLowerCase() === profile.email.toLowerCase();
 
   // 2. Fetch Direct Purchase Requests
   const { data: requests = [], isLoading: isRequestsLoading } = useQuery<DirectPurchaseRequest[]>({
@@ -296,6 +325,60 @@ export function useDirectPurchase() {
     },
   });
 
+  // 7. Executive Approver Mutations — maintained by مدير المشتريات, same shape
+  // as the committee roster above.
+  const addExecutiveMutation = useMutation({
+    mutationFn: async (member: { name: string; email: string; role: string }) => {
+      const { error } = await supabase.from("direct_purchase_executives").insert(member);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["direct-purchase-executives"] });
+      toast.success("تمت إضافة المعتمد بنجاح");
+    },
+    onError: (error: any) => {
+      console.error("Add executive error:", error);
+      if (error?.code === "23505") {
+        toast.error("هذا الشخص مسجّل مسبقاً في قائمة المعتمدين");
+      } else {
+        toast.error("حدث خطأ أثناء الإضافة: " + (error?.message || ""));
+      }
+    },
+  });
+
+  const updateExecutiveMutation = useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: { role?: string; is_active_approver?: boolean };
+    }) => {
+      const { error } = await supabase.from("direct_purchase_executives").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["direct-purchase-executives"] });
+      toast.success("تم تحديث بيانات المعتمد بنجاح");
+    },
+    onError: (error: any) => {
+      console.error("Update executive error:", error);
+      toast.error("حدث خطأ أثناء التعديل: " + (error?.message || ""));
+    },
+  });
+
+  const deleteExecutiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("direct_purchase_executives").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["direct-purchase-executives"] });
+      toast.success("تم حذف المعتمد بنجاح");
+    },
+    onError: () => toast.error("حدث خطأ أثناء حذف المعتمد"),
+  });
+
   // Nudges whoever the request is currently waiting on — the API resolves the
   // recipient from the request's status.
   const remindMutation = useMutation({
@@ -317,7 +400,10 @@ export function useDirectPurchase() {
   return {
     requests,
     committee,
-    isLoading: isRequestsLoading || isCommitteeLoading,
+    executives,
+    activeExecutive,
+    isActiveExecutiveApprover,
+    isLoading: isRequestsLoading || isCommitteeLoading || isExecutivesLoading,
     createRequest: createRequestMutation.mutateAsync,
     updateRequest: updateRequestMutation.mutateAsync,
     deleteRequest: deleteRequestMutation.mutateAsync,
@@ -325,6 +411,9 @@ export function useDirectPurchase() {
     addCommitteeMember: addCommitteeMemberMutation.mutateAsync,
     updateCommitteeMember: updateCommitteeMemberMutation.mutateAsync,
     deleteCommitteeMember: deleteCommitteeMemberMutation.mutateAsync,
+    addExecutive: addExecutiveMutation.mutateAsync,
+    updateExecutive: updateExecutiveMutation.mutateAsync,
+    deleteExecutive: deleteExecutiveMutation.mutateAsync,
     isCreating: createRequestMutation.isPending,
     isUpdating: updateRequestMutation.isPending,
   };

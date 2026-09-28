@@ -13,6 +13,10 @@ export function ProgressStepper({ request }: ProgressStepperProps) {
   const isApproved = request.status === "approved";
   const isHighValue = Number(request.estimated_cost) > 50000;
 
+  const executiveSigned = !!request.executive_approval_date;
+  const minutesSubmitted = !!request.committee_submitted_at;
+  const committeeSignedOff = !!request.committee_completed_at;
+
   const steps = [
     {
       title: "صاحب الطلب",
@@ -26,17 +30,44 @@ export function ProgressStepper({ request }: ProgressStepperProps) {
       isDone: !!request.specialist_action && request.specialist_action !== "returned",
       isCurrent: request.status === "pending_procurement_assign" || request.status === "pending_specialist_review",
     },
+    // The committee pair only exists on the >50k route; the direct route runs
+    // straight from the specialist to the executive director.
+    ...(isHighValue
+      ? [
+          {
+            title: "لجنة الشراء المباشر",
+            desc: minutesSubmitted ? "تم إعداد المحضر" : "دراسة ومحضر اللجنة",
+            isDone: minutesSubmitted,
+            isCurrent: request.status === "pending_committee_secretary",
+          },
+          {
+            title: "إقرار اللجنة",
+            desc: committeeSignedOff ? "اكتملت إقرارات الأعضاء" : "بانتظار إقرار الأعضاء",
+            isDone: committeeSignedOff,
+            isCurrent: request.status === "pending_committee_approval",
+          },
+        ]
+      : []),
     {
-      title: isHighValue ? "لجنة الشراء المباشر" : "مدير المشتريات",
-      desc: isHighValue ? "دراسة ومحضر اللجنة" : "الاعتماد المباشر",
-      isDone: isApproved,
-      isCurrent: request.status === "pending_committee_secretary" || request.status === "pending_committee_approval" || request.status === "pending_admin_approval",
+      title: "اعتماد المدير العام التنفيذي",
+      desc: executiveSigned
+        ? request.executive_decision === "rejected"
+          ? "مرفوض من المدير العام التنفيذي"
+          : `اعتمده: ${request.executive_approver_name || "المدير العام التنفيذي"}`
+        : "بانتظار التوقيع والاعتماد",
+      isDone: executiveSigned && request.executive_decision !== "rejected",
+      isCurrent:
+        request.status === "pending_executive_approval" || request.status === "pending_admin_approval",
     },
     {
-      title: "الاعتماد النهائي",
-      desc: isApproved ? "مكتمل ومعتمد" : isRejected ? "مرفوض" : "بانتظار استكمال الإجراءات",
+      title: "إقفال الطلب",
+      desc: isApproved
+        ? `أقفله: ${request.closed_by_name || "مدير المشتريات"}`
+        : isRejected
+          ? "مرفوض"
+          : "بانتظار إقفال مدير المشتريات",
       isDone: isApproved,
-      isCurrent: isApproved || isRejected,
+      isCurrent: request.status === "pending_closure" || isApproved || isRejected,
     },
   ];
 

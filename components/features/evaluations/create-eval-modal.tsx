@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
 import { supabase } from "@/lib/supabase/client";
+import { looksLikeGarbledPaste } from "@/lib/text-utils";
 
 // Mirrors the vendor-attachments bucket's file_size_limit in
 // supabase/migrations/20260730_profiles_and_rls.sql.
@@ -157,6 +158,13 @@ export const CreateEvalModal = (props: any) => {
                                 required
                                 placeholder="اسم المشروع..."
                               />
+                              {looksLikeGarbledPaste(form.projectName) && (
+                                <p className="mt-2 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
+                                  يبدو أن الاسم منسوخ من ملف PDF وفقد المسافات بين
+                                  كلماته. راجعه وأعد كتابته — سيظهر كما هو في
+                                  التقارير ورسائل البريد.
+                                </p>
+                              )}
                             </div>
                             <div>
                               <label className={labelClasses}>

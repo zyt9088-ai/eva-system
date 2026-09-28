@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Users, ChevronDown, LogOut, LayoutDashboard, ShieldCheck, ClipboardList, Contact, FileCheck } from "lucide-react";
+import { Users, ChevronDown, LogOut, LayoutDashboard, ShieldCheck, ClipboardList, Contact, FileCheck, BadgeCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -12,6 +12,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "مدير مشتريات",
   specialist: "أخصائي مشتريات",
   employee: "موظف",
+  executive: "معتمد تنفيذي",
 };
 
 export function AppHeader() {
@@ -184,6 +185,19 @@ export function AppHeader() {
                     >
                       <Users size={15} className="text-[#C5A059]" />
                       <span>لجنة الشراء المباشر</span>
+                    </Link>
+
+                    <Link
+                      href="/dashboard/executive-approvers"
+                      onClick={() => setIsDropdownOpen(false)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-xl transition-all ${
+                        isLinkActive("/dashboard/executive-approvers")
+                          ? "bg-[#0D4435]/10 text-[#0D4435] font-black"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-[#0D4435]"
+                      }`}
+                    >
+                      <BadgeCheck size={15} className="text-[#C5A059]" />
+                      <span>المعتمدون التنفيذيون</span>
                     </Link>
 
                     <Link

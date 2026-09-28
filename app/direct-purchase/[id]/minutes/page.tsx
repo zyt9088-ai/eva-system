@@ -206,9 +206,12 @@ function MinutesSheet({ request }: { request: DirectPurchaseRequest }) {
     );
 
     const allDone = updatedAttendees.every((a) => a.has_approved);
+    // The committee recommends; it no longer closes the file. Once the last
+    // member signs, an approving recommendation moves to the executive director
+    // for the final signature. A rejection ends the request here.
     const finalStatus = allDone
       ? request.committee_recommendation === "approved"
-        ? "approved"
+        ? "pending_executive_approval"
         : "rejected"
       : "pending_committee_approval";
 
@@ -224,13 +227,21 @@ function MinutesSheet({ request }: { request: DirectPurchaseRequest }) {
 
       toast.success(
         allDone
-          ? "اكتملت إقرارات جميع أعضاء اللجنة وتم اعتماد المحضر والطلب نهائياً!"
+          ? finalStatus === "pending_executive_approval"
+            ? "اكتملت إقرارات جميع أعضاء اللجنة — أُحيل الطلب إلى المدير العام التنفيذي للاعتماد"
+            : "اكتملت إقرارات جميع أعضاء اللجنة وتم رفض الطلب وفق توصية اللجنة"
           : "تم توثيق إقرارك على محضر اللجنة بنجاح"
       );
 
       // The specialist who owns the file hears the verdict once the last
-      // member has signed off.
-      if (allDone) notifyDirectPurchase(request.id, "committee_completed");
+      // member has signed off, and the executive director is called in to sign
+      // whenever the committee's recommendation was to approve.
+      if (allDone) {
+        notifyDirectPurchase(request.id, "committee_completed");
+        if (finalStatus === "pending_executive_approval") {
+          notifyDirectPurchase(request.id, "executive_approval_requested");
+        }
+      }
       router.push(`/direct-purchase/${request.id}`);
     } catch (err) {
       // handled in the hook

@@ -8,14 +8,17 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
   full_name text,
-  role text not null default 'employee' check (role in ('admin', 'specialist', 'employee')),
+  role text not null default 'employee' check (role in ('admin', 'specialist', 'employee', 'executive')),
   created_at timestamptz not null default now()
 );
 
 -- widen the allowed roles if this table already existed from an earlier run
 alter table public.profiles drop constraint if exists profiles_role_check;
+-- 'executive' = المدير العام التنفيذي ونوابه. They sign the final approval on
+-- direct purchase requests; the roster of who holds the position (and who is
+-- currently standing in) lives in public.direct_purchase_executives.
 alter table public.profiles add constraint profiles_role_check
-  check (role in ('admin', 'specialist', 'employee'));
+  check (role in ('admin', 'specialist', 'employee', 'executive'));
 alter table public.profiles alter column role set default 'employee';
 
 -- helper used by policies below (must exist before any policy references it)
@@ -36,10 +39,16 @@ $$;
 -- on first login. Anyone NOT pre-invited still gets in, just as 'employee'.
 create table if not exists public.pending_invites (
   email text primary key check (email ~* '^[^@\s]+@mngdp\.com$'),
-  role text not null default 'specialist' check (role in ('admin', 'specialist')),
+  role text not null default 'specialist' check (role in ('admin', 'specialist', 'executive')),
   invited_by uuid references auth.users (id),
   created_at timestamptz not null default now()
 );
+
+-- widen the allowed invite roles if this table already existed from an earlier
+-- run — the inline check above only applies when the table is created fresh
+alter table public.pending_invites drop constraint if exists pending_invites_role_check;
+alter table public.pending_invites add constraint pending_invites_role_check
+  check (role in ('admin', 'specialist', 'executive'));
 
 alter table public.pending_invites enable row level security;
 

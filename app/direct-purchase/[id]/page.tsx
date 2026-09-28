@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight, Printer, CheckCircle2, Clock, XCircle, AlertCircle,
   Building, User, DollarSign, FileText, Paperclip, ShieldCheck,
-  CheckCheck, Users, HelpCircle, Edit3, UserCheck, Sparkles, ExternalLink, Download, RotateCcw
+  CheckCheck, Users, HelpCircle, Edit3, UserCheck, Sparkles, ExternalLink, Download, RotateCcw, Lock, MessageSquare
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { LoadingScreen } from "@/components/ui/loading-screen";
@@ -17,7 +17,9 @@ import { DeptManagerApprovalModal } from "@/components/features/direct-purchase/
 import { EditDirectPurchaseModal } from "@/components/features/direct-purchase/edit-direct-purchase-modal";
 import { AssignSpecialistModal } from "@/components/features/direct-purchase/assign-specialist-modal";
 import { SpecialistReviewModal } from "@/components/features/direct-purchase/specialist-review-modal";
-import { AdminFinalApprovalModal } from "@/components/features/direct-purchase/admin-final-approval-modal";
+import { ExecutiveApprovalModal } from "@/components/features/direct-purchase/executive-approval-modal";
+import { ClosureModal } from "@/components/features/direct-purchase/closure-modal";
+import { AdminOversightModal, OversightMode } from "@/components/features/direct-purchase/admin-oversight-modal";
 import {
   STATUS_CONFIG, SPECIALIST_CHECKLIST_SECTIONS,
   COMMITTEE_ROLE_LABELS, getReasonLabels, isSecretaryRole
@@ -32,7 +34,13 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
   const router = useRouter();
 
   const { profile, isAdmin, isLoading: isProfileLoading } = useCurrentProfile();
-  const { requests, committee, isLoading: isRequestsLoading } = useDirectPurchase();
+  const {
+    requests,
+    committee,
+    activeExecutive,
+    isActiveExecutiveApprover,
+    isLoading: isRequestsLoading,
+  } = useDirectPurchase();
 
   // Modals state
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
@@ -40,7 +48,10 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isSpecialistModalOpen, setIsSpecialistModalOpen] = useState(false);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isExecutiveModalOpen, setIsExecutiveModalOpen] = useState(false);
+  const [isClosureModalOpen, setIsClosureModalOpen] = useState(false);
+  const [isOversightModalOpen, setIsOversightModalOpen] = useState(false);
+  const [oversightMode, setOversightMode] = useState<OversightMode>("note");
 
   if (isProfileLoading || isRequestsLoading) {
     return <LoadingScreen />;
@@ -71,6 +82,8 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
     (m) => m.email.toLowerCase() === userEmail && isSecretaryRole(m.role)
   );
   const myAttendeeRecord = request.committee_attendees?.find((a) => a.email.toLowerCase() === userEmail);
+  const awaitingExecutive =
+    request.status === "pending_executive_approval" || request.status === "pending_admin_approval";
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col" dir="rtl">
@@ -138,6 +151,50 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
 
         {/* Progress Stepper */}
         <ProgressStepper request={request} />
+
+        {/* مدير المشتريات keeps oversight at every stage — including after the
+            executive director has signed — so these three controls are pinned
+            here rather than bound to a status. Terminal states are excluded:
+            a rejected request has nothing left to return or amend. */}
+        {isAdmin && request.status !== "rejected" && request.status !== "dept_manager_rejected" && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-[#0D4435]/10 text-[#0D4435] rounded-lg flex items-center justify-center shrink-0">
+                <UserCheck size={16} />
+              </div>
+              <p className="text-xs font-black text-gray-700">
+                صلاحيات مدير المشتريات
+                <span className="font-bold text-gray-400"> — متاحة في أي مرحلة</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="h-9 px-4 bg-white border border-gray-200 hover:border-[#0D4435] text-gray-700 hover:text-[#0D4435] rounded-xl text-[11px] font-black flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Edit3 size={14} /> تعديل الطلب
+              </button>
+              <button
+                onClick={() => {
+                  setOversightMode("note");
+                  setIsOversightModalOpen(true);
+                }}
+                className="h-9 px-4 bg-white border border-gray-200 hover:border-[#0D4435] text-gray-700 hover:text-[#0D4435] rounded-xl text-[11px] font-black flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <MessageSquare size={14} /> تدوين ملاحظة
+              </button>
+              <button
+                onClick={() => {
+                  setOversightMode("return");
+                  setIsOversightModalOpen(true);
+                }}
+                className="h-9 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-black flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+              >
+                <RotateCcw size={14} /> إرجاع للتعديل
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Action Banner based on User Role and Status */}
         <div className="mb-8">
@@ -307,24 +364,65 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
             </div>
           )}
 
-          {/* 6. Admin Final Approval for <= 50k */}
-          {request.status === "pending_admin_approval" && isAdmin && (
+          {/* 6. Executive director's final signature — the end of every route.
+              'pending_admin_approval' is the retired status; it's matched here
+              so a row that hasn't been migrated yet still offers the action. */}
+          {awaitingExecutive && (
             <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-100 text-indigo-800 rounded-xl flex items-center justify-center shrink-0">
                   <ShieldCheck size={20} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-indigo-900">اكتمل فحص أخصائي المشتريات — بانتظار الاعتماد النهائي</h4>
-                  <p className="text-xs font-bold text-indigo-700 mt-0.5">الطلب بمبلغ $\le$ 50 ألف ريال ولا يتطلب لجنة، بانتظار قرار مدير المشتريات النهائي.</p>
+                  <h4 className="text-sm font-black text-indigo-900">
+                    بانتظار اعتماد المدير العام التنفيذي
+                  </h4>
+                  <p className="text-xs font-bold text-indigo-700 mt-0.5">
+                    {isActiveExecutiveApprover
+                      ? "اطّلع على كامل ملف الطلب أدناه، ثم وقّع الاعتماد."
+                      : activeExecutive
+                        ? `الطلب بانتظار توقيع ${activeExecutive.name}.`
+                        : "لم يُحدَّد معتمد تنفيذي بعد — على مدير المشتريات إضافته من شاشة المعتمدين."}
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsAdminModalOpen(true)}
-                className="h-11 px-6 bg-[#0D4435] hover:bg-[#0a3529] text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95"
-              >
-                <CheckCircle2 size={16} /> الاعتماد النهائي للطلب
-              </button>
+              {isActiveExecutiveApprover && (
+                <button
+                  onClick={() => setIsExecutiveModalOpen(true)}
+                  className="h-11 px-6 bg-[#0D4435] hover:bg-[#0a3529] text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95"
+                >
+                  <CheckCircle2 size={16} /> توقيع الاعتماد
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 7. Closure by مدير المشتريات, once the executive has signed */}
+          {request.status === "pending_closure" && (
+            <div className="bg-teal-50 border border-teal-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-100 text-teal-800 rounded-xl flex items-center justify-center shrink-0">
+                  <Lock size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-teal-900">
+                    اعتمده المدير العام التنفيذي — بانتظار الإقفال
+                  </h4>
+                  <p className="text-xs font-bold text-teal-700 mt-0.5">
+                    {isAdmin
+                      ? "راجع اكتمال الملف ثم أقفل الطلب لإنهاء المسار."
+                      : "الطلب بانتظار إقفال مدير المشتريات."}
+                  </p>
+                </div>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={() => setIsClosureModalOpen(true)}
+                  className="h-11 px-6 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 active:scale-95"
+                >
+                  <Lock size={16} /> إقفال الطلب
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -677,10 +775,26 @@ export default function DirectPurchaseDetailPage({ params }: { params: Promise<{
         onClose={() => setIsSpecialistModalOpen(false)}
       />
 
-      <AdminFinalApprovalModal
+      {activeExecutive && (
+        <ExecutiveApprovalModal
+          request={request}
+          approver={activeExecutive}
+          isOpen={isExecutiveModalOpen}
+          onClose={() => setIsExecutiveModalOpen(false)}
+        />
+      )}
+
+      <ClosureModal
         request={request}
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
+        isOpen={isClosureModalOpen}
+        onClose={() => setIsClosureModalOpen(false)}
+      />
+
+      <AdminOversightModal
+        request={request}
+        mode={oversightMode}
+        isOpen={isOversightModalOpen}
+        onClose={() => setIsOversightModalOpen(false)}
       />
     </div>
   );

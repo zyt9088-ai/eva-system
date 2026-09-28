@@ -10,6 +10,7 @@ import { useDirectPurchase } from "@/hooks/useDirectPurchase";
 import { ModernDropdown } from "@/components/ui/modern-dropdown";
 import { UploadProgressBar } from "@/components/ui/upload-progress-bar";
 import { REASON_TYPE_OPTIONS } from "@/lib/direct-purchase-types";
+import { cleanPastedText, looksLikeGarbledPaste } from "@/lib/text-utils";
 import { SaudiRiyalIcon } from "@/components/SaudiRiyalIcon";
 
 // Mirrors the direct-purchase-attachments bucket's file_size_limit in
@@ -168,7 +169,7 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
       }
 
       await createRequest({
-        request_title: requestTitle.trim(),
+        request_title: cleanPastedText(requestTitle),
         pr_number: prNumber.trim() || null,
         department: department.trim(),
         estimated_cost: costNum,
@@ -276,6 +277,12 @@ export function CreateDirectPurchaseModal({ isOpen, onClose }: CreateDirectPurch
                     placeholder="مثال: تجديد رخص برنامج الحماية السنوي"
                     className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-[#0D4435] focus:ring-1 focus:ring-[#0D4435] transition-all"
                   />
+                  {looksLikeGarbledPaste(requestTitle) && (
+                    <p className="mt-2 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
+                      يبدو أن العنوان منسوخ من ملف PDF وفقد المسافات بين كلماته.
+                      راجعه وأعد كتابته — سيظهر كما هو في التقارير ورسائل البريد.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">

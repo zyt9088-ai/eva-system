@@ -18,11 +18,15 @@ const EMAIL_PATTERN = new RegExp(`^[^@\\s]+@${ORG_DOMAIN.replace(".", "\\.")}$`,
 const ROLE_LABELS: Record<string, string> = {
   admin: "مدير مشتريات",
   specialist: "أخصائي مشتريات",
+  // Signs the final approval on direct purchase requests. Who currently holds
+  // the signature is set separately, in /dashboard/executive-approvers.
+  executive: "معتمد تنفيذي",
 };
 
 const ROLE_OPTIONS = [
   { value: "admin", label: ROLE_LABELS.admin },
   { value: "specialist", label: ROLE_LABELS.specialist },
+  { value: "executive", label: ROLE_LABELS.executive },
 ];
 
 export default function UsersPage() {
@@ -44,7 +48,7 @@ export default function UsersPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, email, full_name, role, created_at")
-        .in("role", ["admin", "specialist"])
+        .in("role", ["admin", "specialist", "executive"])
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data;
@@ -88,7 +92,7 @@ export default function UsersPage() {
         .maybeSingle();
 
       if (existingProfile) {
-        if (existingProfile.role === "admin" || existingProfile.role === "specialist") {
+        if (ROLE_OPTIONS.some((o) => o.value === existingProfile.role)) {
           throw { code: "ALREADY_MEMBER" };
         }
         const { error } = await supabase

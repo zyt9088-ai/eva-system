@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { mapEvaluationRow } from "@/lib/evaluation-utils";
+import { cleanPastedText } from "@/lib/text-utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 
@@ -66,6 +67,8 @@ const VENDOR_ATTACHMENTS_BUCKET = "vendor-attachments";
 // independently of the vendor row's id, so it survives edit's
 // delete+reinsert cycle); a newly picked File always wins.
 async function insertVendorsWithAttachments(evalId: string, vendors: any[]) {
+  const attachmentFailures: Array<{ vendor: string; reason: string }> = [];
+
   for (const v of vendors || []) {
     const { data: vendorRow, error: vendorError } = await supabase
       .from("vendors")
@@ -79,20 +82,63 @@ async function insertVendorsWithAttachments(evalId: string, vendors: any[]) {
       .single();
     if (vendorError) throw vendorError;
 
-    if (v.attachmentFile) {
-      const path = `${evalId}/${crypto.randomUUID()}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from(VENDOR_ATTACHMENTS_BUCKET)
-        .upload(path, v.attachmentFile, { contentType: "application/pdf" });
-      if (uploadError) throw uploadError;
+    if (!v.attachmentFile) continue;
 
-      const { error: pathError } = await supabase
-        .from("vendors")
-        .update({ attachment_path: path })
-        .eq("id", vendorRow.id);
-      if (pathError) throw pathError;
+    // storage-js drops the `contentType` option for a Blob body and lets the
+    // bucket read the mime type off the multipart part instead, so the file is
+    // re-wrapped under a fixed ASCII name: it pins application/pdf (the only
+    // type the bucket allows) and keeps a non-Latin original filename out of
+    // the multipart Content-Disposition header. The name shown to users lives
+    // in attachment_name, so nothing is lost. Mirrors the same re-wrap in
+    // lib/supabase/upload-with-progress.ts.
+    const path = `${evalId}/${crypto.randomUUID()}.pdf`;
+    const upload = new File([v.attachmentFile], "attachment.pdf", {
+      type: "application/pdf",
+    });
+
+    const { error: uploadError } = await supabase.storage
+      .from(VENDOR_ATTACHMENTS_BUCKET)
+      .upload(path, upload);
+
+    // A rejected PDF must not abandon the rest of the save. Throwing here used
+    // to strand the evaluation with its evaluators uninserted and no
+    // notification sent, while the vendor still showed the file name with no
+    // openable path behind it. Collect the failure and carry on instead.
+    if (uploadError) {
+      console.error("Vendor attachment upload failed", { vendor: v.name, uploadError });
+      attachmentFailures.push({
+        vendor: v.name || "مورد بدون اسم",
+        reason: uploadError.message || "سبب غير معروف",
+      });
+      continue;
+    }
+
+    const { error: pathError } = await supabase
+      .from("vendors")
+      .update({ attachment_path: path })
+      .eq("id", vendorRow.id);
+
+    if (pathError) {
+      console.error("Vendor attachment path update failed", { vendor: v.name, pathError });
+      attachmentFailures.push({
+        vendor: v.name || "مورد بدون اسم",
+        reason: pathError.message || "تعذّر ربط المرفق بالمورد",
+      });
     }
   }
+
+  return attachmentFailures;
+}
+
+/** Surfaces the real reason a PDF didn't make it, named per vendor. */
+function reportAttachmentFailures(failures: Array<{ vendor: string; reason: string }>) {
+  if (failures.length === 0) return;
+  toast.error(
+    `تعذّر رفع مرفق ${failures.length === 1 ? "المورد" : "الموردين"}: ${failures
+      .map((f) => `${f.vendor} (${f.reason})`)
+      .join("، ")}`,
+    { duration: 10000 }
+  );
 }
 
 export function useEvaluations() {
@@ -165,8 +211,8 @@ export function useEvaluations() {
       const { data: evData, error: evError } = await supabase
         .from("evaluations")
         .insert({
-          pr_number: newEval.prNumber,
-          project_name: newEval.projectName,
+          pr_number: cleanPastedText(newEval.prNumber),
+          project_name: cleanPastedText(newEval.projectName),
           deadline: newEval.deadline,
           type: newEval.type,
           status: newEval.status || "قيد التجهيز",
@@ -180,7 +226,7 @@ export function useEvaluations() {
       const evalId = evData.id;
 
       // 2. Insert Vendors (+ upload any attached PDFs)
-      await insertVendorsWithAttachments(evalId, newEval.vendors);
+      const attachmentFailures = await insertVendorsWithAttachments(evalId, newEval.vendors);
 
       // 3. Insert Evaluators — the error must be checked: an unnoticed failure
       // here saves the request with nobody assigned to it, so no notification
@@ -215,11 +261,12 @@ export function useEvaluations() {
         );
       }
 
-      return evData;
+      return { evData, attachmentFailures };
     },
-    onSuccess: (evData) => {
+    onSuccess: ({ evData, attachmentFailures }) => {
       queryClient.invalidateQueries({ queryKey: ["evaluations"] });
       toast.success("تم إنشاء طلب التقييم بنجاح في قاعدة البيانات");
+      reportAttachmentFailures(attachmentFailures);
       notifyEvaluators(evData.id);
     },
     onError: (error) => {
@@ -239,8 +286,8 @@ export function useEvaluations() {
       const { error: evError } = await supabase
         .from("evaluations")
         .update({
-          pr_number: updatedEval.prNumber,
-          project_name: updatedEval.projectName,
+          pr_number: cleanPastedText(updatedEval.prNumber),
+          project_name: cleanPastedText(updatedEval.projectName),
           deadline: updatedEval.deadline,
           status: "قيد التجهيز",
           item_evaluations: {},
@@ -251,7 +298,7 @@ export function useEvaluations() {
       // Vendors/evaluators/criteria/items are replaced wholesale to reflect
       // the edited lists (same shape the create flow inserts them in).
       await supabase.from("vendors").delete().eq("evaluation_id", evalId);
-      await insertVendorsWithAttachments(evalId, updatedEval.vendors);
+      const attachmentFailures = await insertVendorsWithAttachments(evalId, updatedEval.vendors);
 
       await supabase.from("evaluators").delete().eq("evaluation_id", evalId);
       if (updatedEval.evaluators?.length > 0) {
@@ -287,10 +334,13 @@ export function useEvaluations() {
           );
         }
       }
+
+      return { attachmentFailures };
     },
-    onSuccess: (_data, updatedEval) => {
+    onSuccess: ({ attachmentFailures }, updatedEval) => {
       queryClient.invalidateQueries({ queryKey: ["evaluations"] });
       // We don't need a toast here because the page component handles it
+      reportAttachmentFailures(attachmentFailures);
       if (updatedEval.id) notifyEvaluators(updatedEval.id);
     },
     onError: (error) => {

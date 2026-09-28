@@ -63,6 +63,27 @@ export async function POST(request: NextRequest) {
       return (members || []).filter((m: { role?: string }) => isSecretaryRole(m.role));
     };
 
+    const fetchAdminEmails = async () => {
+      const { data } = await supabaseAdmin.from("profiles").select("email").eq("role", "admin");
+      return (data || []).map((p: { email: string }) => p.email).filter(Boolean);
+    };
+
+    // The final signature sits with whichever roster row is flagged as the
+    // standing approver — that's how a deputy stands in while the director is
+    // away. The director is the fallback when nobody has set the flag yet.
+    const fetchActiveExecutive = async () => {
+      const { data } = await supabaseAdmin
+        .from("direct_purchase_executives")
+        .select("name, email, role, is_active_approver")
+        .order("created_at", { ascending: true });
+      const rows = data || [];
+      return (
+        rows.find((x: { is_active_approver?: boolean }) => x.is_active_approver) ||
+        rows.find((x: { role?: string }) => x.role === "executive") ||
+        null
+      );
+    };
+
     if (action === "referred_to_committee") {
       const secretaries = await fetchSecretaries();
 
@@ -138,17 +159,89 @@ export async function POST(request: NextRequest) {
       }${reqData.committee_recommendation_reasons ? `<br/>المسوغات: ${reqData.committee_recommendation_reasons}` : ""}</div><br/>يرجى استكمال الإجراءات النظامية بناءً على قرار اللجنة.`;
     }
 
+    // ---- Executive director stage -------------------------------------------
+    if (action === "executive_approval_requested") {
+      const executive = await fetchActiveExecutive();
+
+      if (!executive) {
+        return NextResponse.json({
+          success: false,
+          message:
+            "لم يُحدَّد معتمد تنفيذي بعد — يرجى إضافته من شاشة المعتمدين التنفيذيين قبل إرسال الطلب للاعتماد",
+        });
+      }
+
+      targetEmail = executive.email;
+      targetName = executive.name;
+      subject = `طلب شراء مباشر بانتظار اعتمادكم: ${reqData.request_title}`;
+      headerTitle = "طلب بانتظار توقيعكم واعتمادكم";
+
+      const routeNote = reqData.committee_completed_at
+        ? "وقد دُرس الطلب من لجنة الشراء المباشر واكتملت إقرارات أعضائها على محضر الاجتماع."
+        : "ولم يُحَل الطلب للجنة لأن تكلفته دون حد الخمسين ألف ريال، وقد اكتمل تدقيق أخصائي المشتريات له.";
+
+      bodyText = `طلب الشراء المباشر رقم <strong>${reqData.request_number}</strong> بانتظار اطلاعكم وتوقيعكم بصفتكم المعتمد التنفيذي، ${routeNote}<br/><br/><div style="padding: 12px 16px; background: #F8FAFC; border-right: 4px solid #C5A059; border-radius: 8px; font-weight: 700; color: #1e293b;">المورد المقترح: ${reqData.vendor_name || "—"}<br/>التكلفة التقديرية: ${Number(reqData.estimated_cost || 0).toLocaleString()} ريال</div><br/>يمكنكم فتح ملف الطلب كاملاً بمرفقاته وإجراءاته من الرابط أدناه ثم توقيع الاعتماد.`;
+    }
+
+    if (action === "executive_approved") {
+      // Approval doesn't end the request — مدير المشتريات closes it, so the
+      // hand-off goes to them, with the assigned specialist kept in the loop.
+      const adminEmails = await fetchAdminEmails();
+      targetEmail = adminEmails[0] || reqData.assigned_specialist_email || "";
+      targetName = "مدير المشتريات والعقود";
+      extraRecipients = [
+        ...adminEmails.slice(1),
+        ...(reqData.assigned_specialist_email ? [reqData.assigned_specialist_email] : []),
+      ].filter((e: string) => e && e !== targetEmail);
+
+      subject = `اعتماد المدير العام التنفيذي للطلب: ${reqData.request_title}`;
+      headerTitle = "اعتماد المدير العام التنفيذي";
+      bodyText = `اعتمد <strong>${reqData.executive_approver_name || "المدير العام التنفيذي"}</strong> طلب الشراء المباشر رقم <strong>${reqData.request_number}</strong>.${
+        reqData.executive_notes
+          ? `<br/><br/><div style="padding: 12px 16px; background: #F8FAFC; border-right: 4px solid #C5A059; border-radius: 8px; font-weight: 700; color: #1e293b;">ملاحظات المعتمد: ${reqData.executive_notes}</div>`
+          : ""
+      }<br/><br/>الطلب الآن بانتظار الإقفال من إدارة المشتريات والعقود بعد التأكد من اكتمال إجراءاته ومستنداته.`;
+    }
+
+    if (action === "executive_rejected") {
+      targetEmail = reqData.requester_email;
+      targetName = reqData.requester_name;
+      extraRecipients = [reqData.assigned_specialist_email].filter(
+        (e: string) => e && e !== targetEmail
+      );
+
+      subject = `عدم اعتماد طلب الشراء المباشر: ${reqData.request_title}`;
+      headerTitle = "عدم اعتماد المدير العام التنفيذي";
+      bodyText = `نود إفادتكم بأن طلب الشراء المباشر رقم <strong>${reqData.request_number}</strong> لم يُعتمد من <strong>${reqData.executive_approver_name || "المدير العام التنفيذي"}</strong>.<br/><br/><div style="padding: 12px 16px; background: #fef2f2; border-right: 4px solid #ef4444; border-radius: 8px; font-weight: 700; color: #991b1b;">أسباب عدم الاعتماد: ${reqData.executive_notes || "غير مذكورة"}</div>`;
+    }
+
+    if (action === "request_closed") {
+      targetEmail = reqData.requester_email;
+      targetName = reqData.requester_name;
+      extraRecipients = [reqData.assigned_specialist_email].filter(
+        (e: string) => e && e !== targetEmail
+      );
+
+      subject = `اكتمال واعتماد طلب الشراء المباشر: ${reqData.request_title}`;
+      headerTitle = "اكتمال إجراءات الطلب";
+      bodyText = `اكتملت إجراءات طلب الشراء المباشر رقم <strong>${reqData.request_number}</strong> واعتُمد من <strong>${reqData.executive_approver_name || "المدير العام التنفيذي"}</strong>، ثم أُقفل من إدارة المشتريات والعقود.${
+        reqData.closure_notes
+          ? `<br/><br/><div style="padding: 12px 16px; background: #ecfdf5; border-right: 4px solid #059669; border-radius: 8px; font-weight: 700; color: #065f46;">ملاحظات الإقفال: ${reqData.closure_notes}</div>`
+          : ""
+      }`;
+    }
+
+    if (action === "returned_by_admin") {
+      targetEmail = reqData.requester_email;
+      targetName = reqData.requester_name;
+      subject = `إرجاع طلب الشراء المباشر للتعديل: ${reqData.request_title}`;
+      headerTitle = "إرجاع الطلب للتعديل";
+      bodyText = `أرجع مدير المشتريات والعقود طلب الشراء المباشر رقم <strong>${reqData.request_number}</strong> لإجراء التعديلات المطلوبة.<br/><br/><div style="padding: 12px 16px; background: #fffbeb; border-right: 4px solid #f59e0b; border-radius: 8px; font-weight: 700; color: #92400e; white-space: pre-line;">${reqData.admin_notes || "يرجى مراجعة وتحديث بيانات الطلب"}</div>`;
+    }
+
     if (action === "reminder") {
       // The reminder always targets whoever the request is waiting on *now*,
       // which the status tells us.
-      const admins = async () => {
-        const { data } = await supabaseAdmin
-          .from("profiles")
-          .select("email")
-          .eq("role", "admin");
-        return (data || []).map((p: { email: string }) => p.email).filter(Boolean);
-      };
-
       if (reqData.status === "pending_dept_manager") {
         targetEmail = reqData.dept_manager_email;
         targetName = reqData.dept_manager_name || "مدير الإدارة";
@@ -174,8 +267,20 @@ export async function POST(request: NextRequest) {
         targetEmail = pending[0] || "";
         targetName = "أعضاء لجنة الشراء المباشر";
         extraRecipients = pending.slice(1);
-      } else if (reqData.status === "pending_procurement_assign" || reqData.status === "pending_admin_approval") {
-        const adminEmails = await admins();
+      } else if (
+        reqData.status === "pending_executive_approval" ||
+        reqData.status === "pending_admin_approval"
+      ) {
+        // 'pending_admin_approval' is the retired status — anything still on it
+        // is waiting on the executive director too.
+        const executive = await fetchActiveExecutive();
+        targetEmail = executive?.email || "";
+        targetName = executive?.name || "المدير العام التنفيذي";
+      } else if (
+        reqData.status === "pending_procurement_assign" ||
+        reqData.status === "pending_closure"
+      ) {
+        const adminEmails = await fetchAdminEmails();
         targetEmail = adminEmails[0] || "";
         targetName = "مدير المشتريات والعقود";
         extraRecipients = adminEmails.slice(1);
