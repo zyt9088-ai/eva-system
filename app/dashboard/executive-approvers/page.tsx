@@ -195,21 +195,22 @@ export default function ExecutiveApproversPage() {
           </div>
         )}
 
+        {/* The table is sized so five columns — two of them un-wrappable — fit
+            without a horizontal scrollbar: the type scales down instead. */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           {executives.length === 0 ? (
             <div className="p-10 text-center text-sm font-bold text-gray-400">
               لا يوجد معتمدون مضافون بعد — لن يتمكن أي طلب من تجاوز مرحلة الاعتماد النهائي
             </div>
           ) : (
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm text-right min-w-[720px]">
+            <table className="w-full text-xs text-right table-fixed">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="py-3.5 px-5 font-black text-gray-500">الاسم</th>
-                  <th className="py-3.5 px-5 font-black text-gray-500">البريد الإلكتروني</th>
-                  <th className="py-3.5 px-5 font-black text-gray-500 w-52">الصفة</th>
-                  <th className="py-3.5 px-5 font-black text-gray-500 w-40 text-center">المعتمد الحالي</th>
-                  <th className="py-3.5 px-5 font-black text-gray-500 w-20 text-center">حذف</th>
+                  <th className="py-3 px-3 font-black text-gray-500">الاسم</th>
+                  <th className="py-3 px-3 font-black text-gray-500">البريد الإلكتروني</th>
+                  <th className="py-3 px-3 font-black text-gray-500 w-44">الصفة</th>
+                  <th className="py-3 px-3 font-black text-gray-500 w-32 text-center">المعتمد الحالي</th>
+                  <th className="py-3 px-3 font-black text-gray-500 w-14 text-center">حذف</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -220,16 +221,16 @@ export default function ExecutiveApproversPage() {
                       x.is_active_approver ? "bg-emerald-50/40" : "hover:bg-gray-50/50"
                     }`}
                   >
-                    <td className="py-4 px-5 font-black text-gray-800 whitespace-nowrap">
-                      <span className="flex items-center gap-2">
-                        <UserCheck size={16} className="text-[#0D4435]" />
+                    <td className="py-3 px-3 font-black text-gray-800 whitespace-nowrap">
+                      <span className="flex items-center gap-1.5">
+                        <UserCheck size={14} className="text-[#0D4435] shrink-0" />
                         {x.name}
                       </span>
                     </td>
-                    <td className="py-4 px-5 font-bold text-gray-600 whitespace-nowrap" dir="ltr">
+                    <td className="py-3 px-3 font-bold text-gray-600 whitespace-nowrap text-[11px]" dir="ltr">
                       {x.email}
                     </td>
-                    <td className="py-4 px-5">
+                    <td className="py-3 px-3">
                       <ModernDropdown
                         value={x.role}
                         options={EXECUTIVE_ROLE_OPTIONS}
@@ -238,29 +239,29 @@ export default function ExecutiveApproversPage() {
                         className="w-full"
                       />
                     </td>
-                    <td className="py-4 px-5 text-center">
+                    <td className="py-3 px-3 text-center">
                       {x.is_active_approver ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-black">
-                          <BadgeCheck size={14} /> المعتمد الحالي
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] font-black whitespace-nowrap">
+                          <BadgeCheck size={13} className="shrink-0" /> المعتمد الحالي
                         </span>
                       ) : (
                         <Tooltip content="اجعله المعتمد الحالي — يُلغى تلقائياً عن غيره">
                           <button
                             onClick={() => handleSetActive(x.id, x.name)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-[#0D4435] text-gray-500 hover:text-[#0D4435] rounded-lg text-xs font-black transition-all cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 hover:border-[#0D4435] text-gray-500 hover:text-[#0D4435] rounded-lg text-[11px] font-black transition-all cursor-pointer whitespace-nowrap"
                           >
-                            <Circle size={12} /> تفويض
+                            <Circle size={11} className="shrink-0" /> تفويض
                           </button>
                         </Tooltip>
                       )}
                     </td>
-                    <td className="py-4 px-5 text-center">
+                    <td className="py-3 px-3 text-center">
                       <Tooltip content="حذف من قائمة المعتمدين">
                         <button
                           onClick={() => handleDelete(x)}
                           className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50 cursor-pointer"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={15} />
                         </button>
                       </Tooltip>
                     </td>
@@ -268,7 +269,6 @@ export default function ExecutiveApproversPage() {
                 ))}
               </tbody>
             </table>
-            </div>
           )}
         </div>
 
@@ -276,15 +276,18 @@ export default function ExecutiveApproversPage() {
           <p className="text-gray-800 font-black mb-2 flex items-center gap-2">
             <ShieldCheck size={15} className="text-[#C5A059]" /> ملاحظة عن الدخول
           </p>
-          إضافة الشخص هنا تمنحه التوقيع على طلبات الشراء المباشر. وحتى يدخل النظام بصلاحية
-          «معتمد تنفيذي»، ادعُه من شاشة{" "}
+          إضافة الشخص هنا <span className="text-gray-800 font-black">تكفي</span> ليوقّع على طلبات
+          الشراء المباشر — يدخل بحسابه المؤسسي ويجد الطلب بانتظاره.
+          <br />
+          وإسناد صفة «معتمد تنفيذي» له من شاشة{" "}
           <button
             onClick={() => router.push("/dashboard/users")}
             className="text-[#0D4435] underline underline-offset-2 font-black cursor-pointer"
           >
             إدارة المستخدمين
           </button>{" "}
-          بنفس بريده — فالصلاحية تُقرأ من ملف المستخدم لا من هذه القائمة.
+          اختياري، وفائدته أن تظهر صفته الصحيحة في حسابه، وألا يدخل على شاشات المشتريات والتقييم
+          التي لا تخصّه.
         </div>
       </main>
     </div>
